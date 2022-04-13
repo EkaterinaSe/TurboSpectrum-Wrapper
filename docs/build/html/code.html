@@ -75,7 +75,30 @@ and structure (density as a function of depth, etc)</p>
 <code class="sig-prename descclassname">model_atm_interpolation.</code><code class="sig-name descname">preInterpolationTests</code><span class="sig-paren">(</span><em class="sig-param">data</em>, <em class="sig-param">interpol_coords</em>, <em class="sig-param">valueKey</em>, <em class="sig-param">dataLabel='default'</em><span class="sig-paren">)</span><a class="headerlink" href="#model_atm_interpolation.preInterpolationTests" title="Permalink to this definition">¶</a></dt>
 <dd><p>Run multiple tests to catch possible exceptions
 that could affect the performance of the underlying
-Qnull math engine during Delaunay triangulation</p>
+Qnull math engine during Delaunay triangulation
+:param data: input directory contatining all available model atmospheres
+:type data: str
+:param interpol_coords: depth scale (e.g. TAU500nm) to be used uniformly for model</p>
+<blockquote>
+<div><p>atmospheres and departure coefficients
+required to ensure homogenious interpolation and can be provided
+in the config file</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>valueKey</strong> (<em>str</em>) – format of model atmosphere, options: ‘m1d’ for MULTI formatted input,
+‘marcs’ for standard MARCS format</p></li>
+<li><p><strong>dataLabel</strong> (<em>boolean</em>) – switch detailed print out</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>boolean</p>
+</dd>
+</dl>
 </dd></dl>
 
 <span class="target" id="module-read_nlte"></span><dl class="function">
