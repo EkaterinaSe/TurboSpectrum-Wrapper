@@ -131,8 +131,26 @@ def preInterpolationTests(data, interpol_coords, valueKey, dataLabel = 'default'
     Run multiple tests to catch possible exceptions
     that could affect the performance of the underlying
     Qnull math engine during Delaunay triangulation
-    """
+    Parameters
+    ----------
+    data : str
+        input directory contatining all available model atmospheres
+    interpol_coords : array
+        depth scale (e.g. TAU500nm) to be used uniformly for model
+        atmospheres and departure coefficients
+        required to ensure homogenious interpolation and can be provided
+        in the config file
+    valueKey : str
+        format of model atmosphere, options: 'm1d' for MULTI formatted input,
+        'marcs' for standard MARCS format
+    dataLabel : boolean
+        switch detailed print out
 
+    Returns
+    -------
+    boolean
+    """
+    
     " Check for degenerate parameters (aka the same for all grid points) "
     for k in interpol_coords:
         if max(data[k]) == min(data[k]):
