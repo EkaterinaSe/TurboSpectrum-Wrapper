@@ -10,7 +10,7 @@ from scipy.interpolate import interp1d
 from model_atm_interpolation import get_all_ma_parameters, NDinterpolateGrid,preInterpolationTests
 from read_nlte import read_fullNLTE_grid, find_distance_to_point
 from atmos_package import model_atmosphere
-from run_ts import write_departures_forTS
+from read_nlte import write_departures_forTS, read_departures_forTS
 import cProfile
 import pstats
 from chemical_elements import ChemElement
@@ -465,6 +465,11 @@ No computations will be done for those")
                         point['abund'] = el.abund[i]
                     pos, comment = find_distance_to_point(point, el.nlteData)
                     depart = el.nlteData['depart'][pos]
+                    if np.isnan(depart).any():
+                        nanMask = np.where(np.isnan(depart))
+                        self.inputParams['comments'][i] += f"Found NaN in \
+    departure coefficients at levels {np.unique(nanMask[1])}, changed to 1 (==LTE) \n"
+                        depart[nanMask] = 1.
                     self.inputParams['comments'][i] += comment
                     for k in el.interpolator['normCoord'][0]:
                         if ( np.abs(el.nlteData[k][pos] - point[k]) / point[k] ) > 0.5:
@@ -476,6 +481,14 @@ for {el.ID} were taken at point with the following parameters:\n"
                 tau = depart[0]
                 depart_coef = depart[1:]
                 write_departures_forTS(departFile, tau, depart_coef, el.abund[i])
+            else:
+                abund, tau, depart = read_departures_forTS(departFile)
+                if np.isnan(depart).any():
+                    nanMask = np.where(np.isnan(depart))
+                    self.inputParams['comments'][i] += f"Found NaN in \
+departure coefficients at levels {np.unique(nanMask[1])}, changed to 1 (==LTE) \n"
+                    depart[nanMask] = 1.
+                    write_departures_forTS(departFile, tau, depart, abund)
             el.departFiles[i] = departFile
 
 

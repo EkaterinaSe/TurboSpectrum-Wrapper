@@ -39,6 +39,33 @@ def write_departures_forTS(fileName, tau, depart, abund):
             f.write( f"{'  '.join(str(depart[j,i]) for j in range(nk))} \n" )
 
 
+def read_departures_forTS(fileName):
+    """
+    Reads NLTE departure coefficients from the input file compatible
+    with TurboSpectrum
+
+    Parameters
+    ----------
+    fileName : str
+        name of the file in which to write the departure coefficients
+    tau : np.array
+        depth scale (e.g. TAU500nm)
+    depart : np.ndarray
+        departure coefficients
+    abund : float
+        chemical element abundance
+    """
+    with open(fileName, 'r') as f:
+        data = [ l for l in f.readlines() if not l.startswith('#') ]
+
+    abund = float( data[0])
+    ndep = int( data[1])
+    nk = int( data[2] )
+    
+    tau = np.loadtxt(fileName, skiprows=11, max_rows = ndep)
+    depart = np.loadtxt(fileName, skiprows=11+ndep)
+    return abund, tau, depart
+
 def read_binary_grid(grid_file, pointer=1):
     """
     Reads a record at specified position from the binary NLTE grid
