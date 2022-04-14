@@ -188,7 +188,7 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
                 if not  os.path.isdir(el.departDir):
                     os.mkdir(el.departDir)
 
-        if depthScale not in self.__dict__:
+        if 'depthScale' not in self.__dict__:
             self.depthScaleNew = np.linspace(-5, 2, 60)
         else: self.depthScaleNew = np.array(depthScale[0], depthScale[1], depthScale[2])
 
@@ -221,7 +221,7 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         in contrast to NLTE departure coefficients,
         which are significantly large
         """
-        atmDepthScale, interpolCoords = self.prepInterpolation_MA()
+        interpolCoords = self.prepInterpolation_MA()
         self.interpolateAllPoints_MA()
         del self.interpolator['modelAtm']
 
