@@ -8,33 +8,46 @@ class linelist(object):
         Read the linelist in TS format
         """
         with open(file, 'r') as f:
-            data = f.readlines()
+            self.data = f.readlines()
+        self.elements = []
 
-        self.data = {}
-        for line in data:
-            l_tmp = line.replace('\n','')
+        for line in self.data:
+            line = line.replace('\n','')
 
-            if l_tmp.startswith("'") and l_tmp.endswith("'"):
-            # identification of the element
-                element = line.replace("'","").split()[0]
+            if line.startswith("'") and line.endswith("'"):
+                elID = line.replace("'","").split()[0]
+                el = element(elID)
+                self.elements.append(el)
+
                 ion = line.replace("'","").split()[1]
-                if not element in self.data.keys():
-                    self.data.update({element: {} })
-                self.data[element].update({ion: { 'wave':[], 'rec':[] }})
-            elif l_tmp.startswith("'"):
-            # line before the element line, atomic number, length, sequential number
-                pass
-            elif l_tmp.endswith("'"):
-            # record for a line of the element ^
-                wave = line.split()[0]
-                self.data[element][ion]['wave'].append(float(wave))
-                self.data[element][ion]['rec'].append(line.replace('\n',''))
-        for el in self.data.keys():
-            for ion in self.data[el].keys():
-                for k in self.data[el][ion].keys():
-                    self.data[el][ion][k] = np.array(self.data[el][ion][k])
+            elif line.startswith("'"):
+                el.Z = int(line.replace("'","").split()[0])
+                el.nlines = int(line.split()[-1])
+            elif line.endswith("'"):
+                wave  = float(line.split()[0])
+                ep = float(line.split()[1])
+                loggf = float(line.split()[2])
+                com = line.split()[-1]
+
+                el.lines['ion'].append(ion)
+                el.lines['wavelength'].append(float(wave))
+                el.lines['loggf'].append(loggf)
+                el.lines['Ei'].append(ep)
+                el.lines['comment'].append(com)
 
 
+
+class element(object):
+    def __init__(self, ID):
+        self.ID = ID
+        self.Z = 0
+        self.lines = {
+                        'ion' : [],\
+                        'wavelength' : [], \
+                        'loggf' : [],\
+                        'Ei' :[],\
+                        'comment' :[]
+                    }
 
 def identify_line(linelist, wave, element, dist_min = 0.01):
     """
