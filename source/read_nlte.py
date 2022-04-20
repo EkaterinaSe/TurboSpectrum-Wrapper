@@ -63,7 +63,8 @@ def read_departures_forTS(fileName):
     nk = int( data[2] )
     
     tau = np.loadtxt(fileName, skiprows=11, max_rows = ndep)
-    depart = np.loadtxt(fileName, skiprows=11+ndep)
+    depart = np.loadtxt(fileName, skiprows=11+ndep).T
+# TODO depart.T shoud be
     return abund, tau, depart
 
 def read_binary_grid(grid_file, pointer=1):
@@ -161,18 +162,17 @@ please supply new depth scale.")
     p = data['pointer'][0]
     ndep, nk, depart, tau = read_binary_grid(bin_file, pointer=p)
     if rescale:
-        departShape = ( len(data['pointer']), nk+1, len(depthScale))
+        departShape = ( len(data['pointer']), nk, len(depthScale))
     else:
-        departShape = ( len(data['pointer']), nk+1, ndep)
+        departShape = ( len(data['pointer']), nk, ndep)
     data.update( {
                 'depart' : np.full(departShape, np.nan),
-                'depthScale' : np.full(departShape[-1], np.nan)
+                'depthScale' : np.full((departShape[0],departShape[-1]), np.nan)
                 } )
     for i in range(len( data['pointer'])):
         p = data['pointer'][i]
         ndep, nk, depart, tau = read_binary_grid(bin_file, pointer=p)
         if rescale:
-            depart_new = np.full(shape=(len(depthScale), nk), fill_value=1)
             f_int = interp1d(tau, depart, fill_value='extrapolate')
             depart = f_int(depthScale)
             tau = depthScale
