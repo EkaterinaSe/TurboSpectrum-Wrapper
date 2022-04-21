@@ -41,6 +41,7 @@ class ChemElement(object):
         self.ID = ID.strip().capitalize()
         self.Z = atomicZ(self.ID)
         self.nlte = False
+        self.comment = ""
 
         # TODO: If you find a nicer way to figure this out
         # TODO: please change here and the rest of the code will manage

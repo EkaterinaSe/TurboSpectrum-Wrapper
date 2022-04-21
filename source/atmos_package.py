@@ -4,7 +4,7 @@ from copy import deepcopy
 """
     Read and manipulate model atmospheres
 """
-
+# TODO: change lists to arrays!
 def read_atmos_marcs(self, file):
     """
     Read model atmosphere in standart MARCS format i.e. *.mod
@@ -191,7 +191,10 @@ class model_atmosphere(object):
                     self.feh = feh
                     self.alpha = self.feh
                 except:
-                    print("WARNING: [Fe/H] and [alpha/Fe] are unknown. Stopped")
+                    print("WARNING: [Fe/H] and [alpha/Fe] are unknown")
+
+                    self.feh = np.nan
+                    self.alpha = np.nan
         elif format.lower() == 'stagger':
 #            print(F"Guessing [Fe/H] and [alpha/Fe] from the file name {self.id}..")
             read_atmos_m1d(self, file)

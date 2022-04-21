@@ -326,6 +326,8 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
 
         el.nlteData = read_fullNLTE_grid( el.nlteGrid, el.nlteAux, \
                                     rescale=rescale, depthScale = depthScale, saveMemory = self.saveMemory )
+        el.comment += el.nlteData['comment']
+
         """ Stack departure coefficients and depth scale for consistent interpolation """
         el.nlteData['departNew'] = np.full((np.shape(el.nlteData['depart'])[0], np.shape(el.nlteData['depart'])[1]+1, np.shape(el.nlteData['depart'])[2]), np.nan)
         for i in range(len(el.nlteData['pointer'])):
@@ -383,7 +385,7 @@ but element is not Fe (for Fe A(Fe) == [Fe/H] is acceptable)")
             }
 
         """
-        Run tests and eventually build an imnterpolating function
+        Run tests and eventually build an interpolating function
         for each sub-grid of constant abundance
         Delete intermediate data
         """
@@ -427,10 +429,6 @@ but element is not Fe (for Fe A(Fe) == [Fe/H] is acceptable)")
                 countOutsideHull += 1
             else:
                 values =  self.interpolator['modelAtm']['interpFunction'](point)[0]
-                #if np.isnan(values).any():
-                #    print(i, 'found NaN:')
-                #if np.isinf(values).any():
-                #    print(i, 'found inf:')
                 self.inputParams['modelAtmInterpol'][i] = values
         if countOutsideHull > 0 and self.debug:
             print(f"{countOutsideHull}/{self.inputParams['count']}requested \
@@ -468,13 +466,9 @@ No computations will be done for those")
                     tau = depart[0]
                     depart = depart[1:]
                     abund = el.abund[i]
-                elif len(x) == 1:
-                    depart = y[0]
-                    if  np.abs( x[0] - el.abund[i] ) > 0.5:
-                        print(f"WARNING: departure coefficients \
-are taken at A({el.ID}) = {ab}, while requested A({el.ID}) = {el.abund[i]} at i = {i}")
-                    tau = depart[0]
-                    depart = depart[1:]
+                elif len(x) == 1 and el.isH:
+                    tau = y[0][0]
+                    depart = y[0][1:]
                     abund = el.abund[i]
                 else:
                     depart = np.nan
@@ -525,6 +519,7 @@ departure coefficients for {el.ID} at levels {np.unique(nanMask[1])} at depth {n
                 depart[nanMask] = 1.
             write_departures_forTS(departFile, tau, depart, abund)
             el.departFiles[i] = departFile
+            self.inputParams['comments'][i] += el.comment
 
 
 
