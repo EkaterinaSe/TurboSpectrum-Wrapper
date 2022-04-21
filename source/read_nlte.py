@@ -61,11 +61,10 @@ def read_departures_forTS(fileName):
     abund = float( data[0])
     ndep = int( data[1])
     nk = int( data[2] )
-    
+
     tau = np.loadtxt(fileName, skiprows=11, max_rows = ndep)
     depart = np.loadtxt(fileName, skiprows=11+ndep).T
-# TODO depart.T shoud be
-    return abund, tau, depart
+    return abund, tau, depart.T
 
 def read_binary_grid(grid_file, pointer=1):
     """
@@ -160,6 +159,9 @@ please supply new depth scale.")
     depth dimension and same model atom was used consistently)
     """
     p = data['pointer'][0]
+    levSubst = []
+    depthSubst = []
+
     ndep, nk, depart, tau = read_binary_grid(bin_file, pointer=p)
     if rescale:
         departShape = ( len(data['pointer']), nk, len(depthScale))
@@ -172,6 +174,17 @@ please supply new depth scale.")
     for i in range(len( data['pointer'])):
         p = data['pointer'][i]
         ndep, nk, depart, tau = read_binary_grid(bin_file, pointer=p)
+        if np.isnan(depart).any():
+            nanMask = np.where(np.isnan(depart))
+            depart[nanMask] = 1.
+            levSubst.extend(np.unique(nanMask[1]))
+            depthSubst.extend(np.unique(nanMask[0]))
+        if np.isinf(depart).any():
+            infMask = np.where(np.isinf(depart))
+            depart[infMask] = 1.
+            levSubst.extend(np.unique(nanMask[1]))
+            depthSubst.extend(np.unique(nanMask[0]))
+
         if rescale:
             f_int = interp1d(tau, depart, fill_value='extrapolate')
             depart = f_int(depthScale)
@@ -179,6 +192,14 @@ please supply new depth scale.")
 
         data['depart'][i] = depart
         data['depthScale'][i] = tau
+
+        levSubst   = np.unique(levSubst)
+        depthSubst = np.unique(depthSubst)
+        if len(levSubst):
+            data['comment'] = f" Found NaN/inf in the departure \
+coefficients at levels {levSubst} at depth {depthSubst}, changed to 1 (==LTE) \n"
+        else: data['comment'] = ""
+
     return data
 
 
