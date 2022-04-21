@@ -3,51 +3,82 @@ from sys import argv, exit
 import glob
 
 class linelist(object):
-    def __init__(self, file = './linelist.txt'):
-        """
-        Read the linelist in TS format
-        """
-        with open(file, 'r') as f:
-            self.data = f.readlines()
-        self.elements = []
+    def __init__(self, file = './linelist.txt', fmt='GES'):
+        if fmt.lower() == 'ges':
+            """
+            Read the linelist in GES format
+            """
+            with open(file, 'r') as f:
+                self.data = f.readlines()
+            self.elements = []
+            included = []
+            for rec in self.data:
+                rec = rec.replace('\n','')
 
-        for line in self.data:
-            line = line.replace('\n','')
+                if rec.startswith("'") and rec.endswith("'"):
+                    elID = rec.replace("'","").split()[0]
+                    if elID not in included:
+                        included.append(elID)
+                        el = element(elID)
+                        el.Z = z
+                        el.nlines = nlines
+                        self.elements.append(el)
 
-            if line.startswith("'") and line.endswith("'"):
-                elID = line.replace("'","").split()[0]
-                el = element(elID)
-                self.elements.append(el)
+                    ion = rec.replace("'","").split()[1]
+                elif rec.startswith("'"):
+                    z =  int(float(rec.replace("'","").split()[0]))
+                    nlines = int(rec.split()[-1])
+                elif rec.endswith("'"):
+                    wave  = float(rec.split()[0])
+                    ep = float(rec.split()[1])
+                    loggf = float(rec.split()[2])
+                    com = rec.split()[-1]
 
-                ion = line.replace("'","").split()[1]
-            elif line.startswith("'"):
-                el.Z = int(line.replace("'","").split()[0])
-                el.nlines = int(line.split()[-1])
-            elif line.endswith("'"):
-                wave  = float(line.split()[0])
-                ep = float(line.split()[1])
-                loggf = float(line.split()[2])
-                com = line.split()[-1]
+                    ll = line(wave, el)
+                    ll.ion = ion
+                    ll.ID += f"{ll.ion}"
+                    el.lines.append(ll)
+                    ll.Ei = ep
+                    ll.loggf = loggf
+                    ll.comment = com
+        if fmt.lower() == 'h':
+            with open(file, 'r') as f:
+                self.data = [l for l in  f.readlines()  if not l.startswith("'")]
+            el = element('H')
+            el.Z = 1
+            el.nlines = len(self.data)
+            
+            for rec in self.data:
+                wave = float(rec.split()[0])
+                ep = float(rec.split()[3])
+                loggf = float(rec.split()[5])
+                com = rec.split()[6]
 
-                el.lines['ion'].append(ion)
-                el.lines['wavelength'].append(float(wave))
-                el.lines['loggf'].append(loggf)
-                el.lines['Ei'].append(ep)
-                el.lines['comment'].append(com)
+                ll = line(wave, el)
+                ll.ion = 'I'
+                ll.ID += f"{ll.ion}"
+                ll.Ei = ep
+                ll.loggf = loggf
+                ll.comment = com
+                el.lines.append(ll)
 
+            self.elements = [el]
 
 
 class element(object):
     def __init__(self, ID):
         self.ID = ID
         self.Z = 0
-        self.lines = {
-                        'ion' : [],\
-                        'wavelength' : [], \
-                        'loggf' : [],\
-                        'Ei' :[],\
-                        'comment' :[]
-                    }
+        self.lines = []
+
+class line(element):
+    def __init__(self, lam, parent):
+        self.Z = parent.Z
+        self.ID = parent.ID
+        self.lam = lam
+        self.ion = 0
+        self.loggf = np.nan
+        self.Ei = np.nan
 
 def identify_line(linelist, wave, element, dist_min = 0.01):
     """

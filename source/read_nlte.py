@@ -172,11 +172,11 @@ please supply new depth scale.")
     for i in range(len( data['pointer'])):
         p = data['pointer'][i]
         ndep, nk, depart, tau = read_binary_grid(bin_file, pointer=p)
+    # TODO! add comments and pass to the spectral output
         if rescale:
             f_int = interp1d(tau, depart, fill_value='extrapolate')
             depart = f_int(depthScale)
             tau = depthScale
-
         data['depart'][i] = depart
         data['depthScale'][i] = tau
     return data
