@@ -200,7 +200,7 @@ Input parameters: \n\
                         moveSpec.write(l)
                 os.remove(specResultFile)
             """ Clean up """
-            os.remove(atmos.path)
+#            os.remove(atmos.path)
             os.remove(modelOpacFile)
             os.remove(modelOpacFile+'.mod')
     return set

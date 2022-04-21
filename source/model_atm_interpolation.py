@@ -153,7 +153,6 @@ def preInterpolationTests(data, interpol_coords, valueKey, dataLabel = 'default'
     
     " Check for degenerate parameters (aka the same for all grid points) "
     for k in interpol_coords:
-        print(k)
         if max(data[k]) == min(data[k]):
             print(f"Grid {dataLabel} is degenerate in parameter {k}")
             print(F"Values: {np.unique(data[k])}")
