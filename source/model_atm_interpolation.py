@@ -150,7 +150,7 @@ def preInterpolationTests(data, interpol_coords, valueKey, dataLabel = 'default'
     -------
     boolean
     """
-    
+
     " Check for degenerate parameters (aka the same for all grid points) "
     for k in interpol_coords:
         if max(data[k]) == min(data[k]):
