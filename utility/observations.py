@@ -49,7 +49,6 @@ def select_within_linemask(line_masks, element, w_obs, w_model, debug=False):
         lm = line_masks[element]
         # check whether wavelenght fall in the segment
         check = np.full(len(lm['w_center']), False)
-
         ind_model = []
         for j in range(len(lm['w_center'])):
             mask = np.where(np.logical_and.reduce([ w_model >= lm['w_start'][j], w_model <= lm['w_end'][j] ]))[0]
@@ -88,7 +87,7 @@ class spectrum(object):
 
 
     def convolve_resolution(self, R_new):
-        # print(F"Convolving spectrum from R={self.R} to R={R_new}...")
+        print(F"Convolving spectrum from R={self.R} to R={R_new}...")
 
         d_lam = (np.mean(self.lam)/R_new)
         sigma = d_lam / (2.0 * np.sqrt(2. * np.log(2.)))
@@ -141,7 +140,7 @@ class spectrum(object):
             print(F"Unexpected Vrot={self.Vrot} [km/s]. Stopped.")
             exit(1)
 
-    def convolve_macroturbulence(self, Vmac, debug):
+    def convolve_macroturbulence(self, Vmac, debug=False):
         """
         Convolve with macro-turbulence (radial-tangential profile)
         Identical to faltbon (tested on O triplet)

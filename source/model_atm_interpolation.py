@@ -124,7 +124,7 @@ Try setting debug = 1 in config file. Check that expected format of model atmosp
         "Dump all in one file (only done once)"
         with open(save_file, 'wb') as f:
             pickle.dump(MAgrid, f)
-    return MAgrid, depthScaleNew
+    return MAgrid
 
 def preInterpolationTests(data, interpol_coords, valueKey, dataLabel = 'default'):
     """
@@ -150,7 +150,7 @@ def preInterpolationTests(data, interpol_coords, valueKey, dataLabel = 'default'
     -------
     boolean
     """
-    
+
     " Check for degenerate parameters (aka the same for all grid points) "
     for k in interpol_coords:
         if max(data[k]) == min(data[k]):

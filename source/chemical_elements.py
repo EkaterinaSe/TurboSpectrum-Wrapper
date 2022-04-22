@@ -15,7 +15,7 @@ def atomicZ(el):
     el : str
         element name e.g. 'Mg'
     """
-    if os.path.abspath.isfile('./atomic_numbers.dat'):
+    if os.path.isfile('./atomic_numbers.dat'):
         el_z = np.loadtxt('./atomic_numbers.dat', usecols=(0))
         el_id = np.loadtxt('./atomic_numbers.dat', usecols=(1), dtype=str)
     else:
@@ -41,6 +41,7 @@ class ChemElement(object):
         self.ID = ID.strip().capitalize()
         self.Z = atomicZ(self.ID)
         self.nlte = False
+        self.comment = ""
 
         # TODO: If you find a nicer way to figure this out
         # TODO: please change here and the rest of the code will manage

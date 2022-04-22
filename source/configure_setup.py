@@ -10,65 +10,78 @@ from scipy.interpolate import interp1d
 from model_atm_interpolation import get_all_ma_parameters, NDinterpolateGrid,preInterpolationTests
 from read_nlte import read_fullNLTE_grid, find_distance_to_point
 from atmos_package import model_atmosphere
-from run_ts import write_departures_forTS
+from read_nlte import write_departures_forTS, read_departures_forTS
 import cProfile
 import pstats
 from chemical_elements import ChemElement
 
 def in_hull(p, hull):
-   return hull.find_simplex(p) >= 0
+    """
+    Is triangulation-based interpolation to this point possible?
 
+    Parameters
+    ----------
+    p : dict
+        point to test, contains coordinate names as keys and their values, e.g.
+        p['teff'] = 5150
+    hull :
 
-"""
-Reading the config file and preparing for the computations
-"""
+    Returns
+    -------
+    whether point is inside the hull
+    """
+    return hull.find_simplex(p) >= 0
+
 def mkdir(s):
     if os.path.isdir(s):
         shutil.rmtree(s)
     os.mkdir(s)
 
-def atomicZ(el):
-    if os.path.isfile('./atomic_numbers.dat'):
-        el_z = np.loadtxt('./atomic_numbers.dat', usecols=(0))
-        el_id = np.loadtxt('./atomic_numbers.dat', usecols=(1), dtype=str)
-    else:
-        print("Can not find './atomic_numbers.dat' file. Stopped.")
-        exit(1)
-    for i in range(len(el_id)):
-        if el.lower() == el_id[i].lower():
-            return el_z[i]
-
-    self.MAhull = np.array([ modelAtmGrid[k] for k in interpolCoords ]).T
-
 
 def read_random_input_parameters(file):
     """
-    Read input file listing requested labels
-
-    First four columns are Teff, logg, Vturb, Fe, then all the elements
-    Example:
-    -----
+    Read strictly formatted input parameters
+    Example of input file:
+    ....
     Teff logg Vturb FeH Fe H O # Ba
     5535  2.91  0.0  -1.03  6.470  12.0   9.610 # 2.24
     7245  5.74  0.0  -0.50  7.000  12.0   8.009 # -2.2
     ....
-    -----
+    Input file must include Teff, logg, Vturb, and FeH
+
+    Parameters
+    ----------
+    file : str
+        path to the input file
+
+    Returns
+    -------
+    input_par : dict
+        contains parameters requested for spectral synthesis,
+        both fundamental (e.g. Teff, log(g), [Fe/H], micro-turbulence)
+        and individual chemical abundances
+
+    freeParams : list
+        parameters describing model atmosphere
     """
     data =[ l.split('#')[0] for l in open(file, 'r').readlines() \
                             if not (l.startswith('#') or l.strip()=='') ]
-    elIDs = data[0].replace("'","").split()[4:]
+    header = data[0].replace("'","")
 
-
-    values =  [ l.split() for l in data[1:] ]
-    values = np.array(values).astype(float)
-    freeParams = ['teff', 'logg', 'vturb', 'feh']
-    input_par = {'teff':values[:, 0], 'logg':values[:, 1], 'vturb':values[:, 2], 'feh':values[:,3], \
-                # 'elements' : {
-                            # elements[i].capitalize() : {'abund': values[:, i+4], 'nlte':False, 'Z' : atomicZ(elements[i])} \
-                            #                     for i in range(len(elements))
-                            #     }
-                'elements' : {}
+    freeParams = [ s.lower() for s in header.split()[:4] ]
+    for k in ['teff', 'logg', 'vturb', 'feh']:
+        if k not in freeParams:
+            print(f"Could not find {k} in the input file {file}. \
+Please check requested input.")
+            exit()
+            # TODO: better exceptions/error tracking
+    values =  np.array( [ l.split() for l in data[1:] ] ).astype(float)
+    input_par = {
+                'teff':values[:, 0], 'logg':values[:, 1], 'vturb':values[:, 2],\
+                'feh':values[:,3], 'elements' : {}
                 }
+
+    elIDs = header.split()[4:]
     for i in range(len(elIDs)):
         el = ChemElement(elIDs[i].capitalize())
         el.abund = values[:, i+4]
@@ -78,14 +91,29 @@ def read_random_input_parameters(file):
     input_par['comments'] = np.full(input_par['count'], '', dtype='U5000')
 
     if 'Fe' not in input_par['elements']:
-        print(f"Warning: input contains [Fe/H], but no A(Fe)")
-    absAbundCheck = np.array([ el.abund / 12. for el in input_par['elements'].values() ])
-    if (absAbundCheck < 0.1).any():
-        print(f"Warning: abundances must be supplied relative to H, on log12 scale. Please double check input file '{file}'")
+        print(f"WARNING: input contains [Fe/H], but no A(Fe).\
+Setting A(Fe) to 7.5")
+        el = ChemElement('Fe')
+        el.abund = input_par['feh'] + 7.5
+        input_par['elements'][el.ID] = el
 
+    absAbundCheck = np.array([ el.abund / 12. for el in input_par['elements'].values() ])
+    if (absAbundCheck < 0.0).any():
+        print(f"Warning: abundances must be supplied relative to H, \
+on log12 scale. Please double check input file '{file}'")
+    # TODO: move free parameters as a sub-dictinary of the return
     return input_par, freeParams
 
 class setup(object):
+    """
+    Describes the setup requested for computations
+
+    Parameters
+    ----------
+    file : str
+        path to the configuration file, './config.txt' by default
+
+    """
     def __init__(self, file='./config.txt'):
         if 'cwd' not in self.__dict__.keys():
             self.cwd = f"{os.getcwd()}/"
@@ -126,7 +154,6 @@ class setup(object):
             self.inputParams, self.freeInputParams = read_random_input_parameters(self.inputParams_file)
         else:
             print("Missing file with input parameters: inputParams_file")
-            exit()
 
         if 'nlte_config' in self.__dict__:
             """ Read provided NLTE grids and model atoms
@@ -188,7 +215,7 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
                 if not  os.path.isdir(el.departDir):
                     os.mkdir(el.departDir)
 
-        if depthScale not in self.__dict__:
+        if 'depthScale' not in self.__dict__:
             self.depthScaleNew = np.linspace(-5, 2, 60)
         else: self.depthScaleNew = np.array(depthScale[0], depthScale[1], depthScale[2])
 
@@ -221,7 +248,7 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         in contrast to NLTE departure coefficients,
         which are significantly large
         """
-        atmDepthScale, interpolCoords = self.prepInterpolation_MA()
+        interpolCoords = self.prepInterpolation_MA()
         self.interpolateAllPoints_MA()
         del self.interpolator['modelAtm']
 
@@ -253,6 +280,26 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
                         break
                     else:
                         el.departFiles[i] = departFile
+#                        abund, tau, depart = read_departures_forTS(departFile)
+#                        if np.shape(depart)[1] == np.shape(tau):
+#                            depart = depart.T
+#                            write_departures_forTS(departFile, tau, depart, abund)
+#                            el.departFiles[i] = departFile
+#                        if np.isnan(depart).any():
+#                            print('found nan in ', departFile)
+#                            nanMask = np.where(np.isnan(depart))
+#                            self.inputParams['comments'][i] += f"Found NaN in \
+#departure coefficients for {el.ID} at levels {np.unique(nanMask[1])}, changed to 1 (==LTE) \n"
+#                            depart[nanMask] = 1.
+#                            write_departures_forTS(departFile, tau, depart, abund)
+#                        if np.isinf(depart).any():
+#                            print('found inf in ', departFile)
+#                            nanMask = np.where(np.isinf(depart))
+#                            self.inputParams['comments'][i] += f"Found inf in \
+#departure coefficients for {el.ID} at levels {np.unique(nanMask[1])}, depth {np.unique(nanMask[0])}, changed to 1 (==LTE) \n"
+#                            depart[nanMask] = 1.
+#                            write_departures_forTS(departFile, tau, depart, abund)
+#                            el.departFiles[i] = departFile
 
                 if doInterpolate:
                     self.prepInterpolation_NLTE(el, interpolCoords, \
@@ -307,9 +354,15 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
 
         el.nlteData = read_fullNLTE_grid( el.nlteGrid, el.nlteAux, \
                                     rescale=rescale, depthScale = depthScale, saveMemory = self.saveMemory )
+        el.comment += el.nlteData['comment']
+        del el.nlteData['comment']
+
         """ Stack departure coefficients and depth scale for consistent interpolation """
+        el.nlteData['departNew'] = np.full((np.shape(el.nlteData['depart'])[0], np.shape(el.nlteData['depart'])[1]+1, np.shape(el.nlteData['depart'])[2]), np.nan)
         for i in range(len(el.nlteData['pointer'])):
-            el.nlteData['depart'][i] = np.vstack([el.nlteData['depthScale'][i], el.nlteData['depart'][i]])
+            el.nlteData['departNew'][i] = np.vstack([el.nlteData['depthScale'][i], el.nlteData['depart'][i]])
+        el.nlteData['depart'] = el.nlteData['departNew'].copy()
+        del el.nlteData['departNew']
         del el.nlteData['depthScale']
 
         """
@@ -361,13 +414,12 @@ but element is not Fe (for Fe A(Fe) == [Fe/H] is acceptable)")
             }
 
         """
-        Run tests and eventually build an imnterpolating function
+        Run tests and eventually build an interpolating function
         for each sub-grid of constant abundance
         Delete intermediate data
         """
         for i in range(len(subGrids['abund'])):
             ab = subGrids['abund'][i]
-            print(ab, interpolCoords)
             passed = preInterpolationTests(subGrids['nlteData'][i], \
                                         interpolCoords_el, \
                                         valueKey='depart', \
@@ -440,11 +492,13 @@ No computations will be done for those")
                 """
                 if len(x) >= 2:
                     depart = interp1d(x, y, fill_value='extrapolate', axis=0)(el.abund[i])
-#                elif len(x) == 1:
-#                    depart = y[0]
-#                    if  np.abs( x[0] - el.abund[i] ) > 0.5:
-#                        print(f"WARNING: departure coefficients \
-#are taken at A({el.ID}) = {ab}, while requested A({el.ID}) = {el.abund[i]} at i = {i}")
+                    tau = depart[0]
+                    depart = depart[1:]
+                    abund = el.abund[i]
+                elif len(x) == 1 and el.isH:
+                    tau = y[0][0]
+                    depart = y[0][1:]
+                    abund = el.abund[i]
                 else:
                     depart = np.nan
 
@@ -455,9 +509,10 @@ No computations will be done for those")
                 """
                 if np.isnan(depart).all():
                     #if self.debug:
-#                        print(f"departure coefficients are NaN \
-#at A({el.ID}) = {el.abund[i]}, [Fe/H] = {self.inputParams['feh'][i]} at i = {i}")
-#                        print(f"attempting to find the closest point the in the grid of departure coefficients")
+                    print(f"Found no departure coefficients \
+at A({el.ID}) = {el.abund[i]}, [Fe/H] = {self.inputParams['feh'][i]} at i = {i}")
+                    print(f"attempting to find the closest point the in the grid of departure coefficients")
+# TODO: move the four routines below into model_atm_interpolation
                     point = {}
                     for k in el.interpolator['normCoord'][0]:
                         point[k] = self.inputParams[k][i]
@@ -465,7 +520,6 @@ No computations will be done for those")
                         point['abund'] = el.abund[i]
                     pos, comment = find_distance_to_point(point, el.nlteData)
                     depart = el.nlteData['depart'][pos]
-                    self.inputParams['comments'][i] += comment
                     for k in el.interpolator['normCoord'][0]:
                         if ( np.abs(el.nlteData[k][pos] - point[k]) / point[k] ) > 0.5:
                             self.inputParams['comments'][i] += f"departure coefficients \
@@ -473,10 +527,29 @@ for {el.ID} were taken at point with the following parameters:\n"
                             for k in el.interpolator['normCoord'][0]:
                                 self.inputParams['comments'][i] += f"{k} = {el.nlteData[k][pos]}\
  (off by {point[k] - el.nlteData[k][pos] }) \n"
-                tau = depart[0]
-                depart_coef = depart[1:]
-                write_departures_forTS(departFile, tau, depart_coef, el.abund[i])
+                    tau = depart[0]
+                    depart = depart[1:]
+                    abund = el.abund[i]
+            else:
+                print('found departure file:', departFile, 'reading')
+                abund, tau, depart = read_departures_forTS(departFile)
+
+
+            if np.isnan(depart).any():
+                  nanMask = np.where(np.isnan(depart))
+                  self.inputParams['comments'][i] += f"Found NaN in \
+departure coefficients for {el.ID} at levels {np.unique(nanMask[1])} at depth {np.unique(nanMask[0])}, changed to 1 (==LTE) \n"
+                  depart[nanMask] = 1.
+
+            if np.isinf(depart).any():
+                nanMask = np.where(np.isinf(depart))
+                self.inputParams['comments'][i] += f"Found inf in \
+departure coefficients for {el.ID} at levels {np.unique(nanMask[1])} at depth {np.unique(nanMask[0])}, changed to 1 (==LTE) \n"
+                depart[nanMask] = 1.
+            write_departures_forTS(departFile, tau, depart, abund)
             el.departFiles[i] = departFile
+            self.inputParams['comments'][i] += el.comment
+
 
 
 

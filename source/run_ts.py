@@ -10,7 +10,6 @@ import time
 import datetime
 # local
 from atmos_package import read_atmos_marcs, model_atmosphere
-from read_nlte import write_departures_forTS
 
 def mkdir(s):
     if os.path.isdir(s):
@@ -201,7 +200,7 @@ Input parameters: \n\
                         moveSpec.write(l)
                 os.remove(specResultFile)
             """ Clean up """
-            os.remove(atmos.path)
+#            os.remove(atmos.path)
             os.remove(modelOpacFile)
             os.remove(modelOpacFile+'.mod')
     return set
