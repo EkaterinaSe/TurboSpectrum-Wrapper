@@ -327,6 +327,7 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         el.nlteData = read_fullNLTE_grid( el.nlteGrid, el.nlteAux, \
                                     rescale=rescale, depthScale = depthScale, saveMemory = self.saveMemory )
         el.comment += el.nlteData['comment']
+        del el.nlteData['comment']
 
         """ Stack departure coefficients and depth scale for consistent interpolation """
         el.nlteData['departNew'] = np.full((np.shape(el.nlteData['depart'])[0], np.shape(el.nlteData['depart'])[1]+1, np.shape(el.nlteData['depart'])[2]), np.nan)
@@ -480,7 +481,7 @@ No computations will be done for those")
                 """
                 if np.isnan(depart).all():
                     #if self.debug:
-                    print(f"departure coefficients are NaN \
+                    print(f"Found no departure coefficients \
 at A({el.ID}) = {el.abund[i]}, [Fe/H] = {self.inputParams['feh'][i]} at i = {i}")
                     print(f"attempting to find the closest point the in the grid of departure coefficients")
 # TODO: move the four routines below into model_atm_interpolation

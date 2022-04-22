@@ -64,7 +64,7 @@ def read_departures_forTS(fileName):
 
     tau = np.loadtxt(fileName, skiprows=11, max_rows = ndep)
     depart = np.loadtxt(fileName, skiprows=11+ndep).T
-    return abund, tau, depart.T
+    return abund, tau, depart
 
 def read_binary_grid(grid_file, pointer=1):
     """
@@ -182,8 +182,8 @@ please supply new depth scale.")
         if np.isinf(depart).any():
             infMask = np.where(np.isinf(depart))
             depart[infMask] = 1.
-            levSubst.extend(np.unique(nanMask[1]))
-            depthSubst.extend(np.unique(nanMask[0]))
+            levSubst.extend(np.unique(infMask[1]))
+            depthSubst.extend(np.unique(infMask[0]))
         if rescale:
             f_int = interp1d(tau, depart, fill_value='extrapolate')
             depart = f_int(depthScale)
@@ -191,12 +191,12 @@ please supply new depth scale.")
         data['depart'][i] = depart
         data['depthScale'][i] = tau
 
-        levSubst   = np.unique(levSubst)
-        depthSubst = np.unique(depthSubst)
-        if len(levSubst):
-            data['comment'] = f" Found NaN/inf in the departure \
+    levSubst   = np.unique(levSubst)
+    depthSubst = np.unique(depthSubst)
+    if len(levSubst):
+        data['comment'] = f" Found NaN/inf in the departure \
 coefficients at levels {levSubst} at depth {depthSubst}, changed to 1 (==LTE) \n"
-        else: data['comment'] = ""
+    else: data['comment'] = ""
 
     return data
 
