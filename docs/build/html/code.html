@@ -154,6 +154,32 @@ used to solve for NLTE of shape (ndep)</p></li>
 </dd></dl>
 
 <dl class="function">
+<dt id="read_nlte.read_departures_forTS">
+<code class="sig-prename descclassname">read_nlte.</code><code class="sig-name descname">read_departures_forTS</code><span class="sig-paren">(</span><em class="sig-param">fileName</em><span class="sig-paren">)</span><a class="headerlink" href="#read_nlte.read_departures_forTS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reads NLTE departure coefficients from the input file compatible
+with TurboSpectrum</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fileName</strong> (<em>str</em>) – name of the file in which to write the departure coefficients</p></li>
+<li><p><strong>tau</strong> (<em>np.array</em>) – depth scale (e.g. TAU500nm)</p></li>
+<li><p><strong>depart</strong> (<em>np.ndarray</em>) – departure coefficients</p></li>
+<li><p><strong>abund</strong> (<em>float</em>) – chemical element abundance</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>abund</strong> (<em>float</em>) – abundance of the chemical element on log 12 scale</p></li>
+<li><p><strong>tau</strong> (<em>np.array</em>) – depth scale in the model atmosphere used to solve for NLTE RT
+(e.g. TAU500nm)</p></li>
+<li><p><strong>depart</strong> (<em>np.ndarray</em>) – departure coefficients</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
 <dt id="read_nlte.read_fullNLTE_grid">
 <code class="sig-prename descclassname">read_nlte.</code><code class="sig-name descname">read_fullNLTE_grid</code><span class="sig-paren">(</span><em class="sig-param">bin_file</em>, <em class="sig-param">aux_file</em>, <em class="sig-param">rescale=False</em>, <em class="sig-param">depthScale=None</em>, <em class="sig-param">saveMemory=False</em><span class="sig-paren">)</span><a class="headerlink" href="#read_nlte.read_fullNLTE_grid" title="Permalink to this definition">¶</a></dt>
 <dd><p>Reads the full binary NLTE grid of departure coefficients
@@ -194,9 +220,10 @@ with TurboSpectrum</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>fileName</strong> (<em>str</em>) – name of the file in which to write the departure coefficients</p></li>
-<li><p><strong>tau</strong> (<em>np.array</em>) – depth scale (e.g. TAU500nm)</p></li>
+<li><p><strong>tau</strong> (<em>np.array</em>) – depth scale in the model atmosphere used to solve for NLTE RT
+(e.g. TAU500nm)</p></li>
 <li><p><strong>depart</strong> (<em>np.ndarray</em>) – departure coefficients</p></li>
-<li><p><strong>abund</strong> (<em>float</em>) – chemical element abundance</p></li>
+<li><p><strong>abund</strong> (<em>float</em>) – chemical element abundance on log 12 scale</p></li>
 </ul>
 </dd>
 </dl>
