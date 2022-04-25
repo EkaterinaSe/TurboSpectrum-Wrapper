@@ -15,11 +15,12 @@ def write_departures_forTS(fileName, tau, depart, abund):
     fileName : str
         name of the file in which to write the departure coefficients
     tau : np.array
-        depth scale (e.g. TAU500nm)
+        depth scale in the model atmosphere used to solve for NLTE RT
+        (e.g. TAU500nm)
     depart : np.ndarray
         departure coefficients
     abund : float
-        chemical element abundance
+        chemical element abundance on log 12 scale
     """
 
     ndep = len(tau)
@@ -38,7 +39,6 @@ def write_departures_forTS(fileName, tau, depart, abund):
         for i in range(ndep):
             f.write( f"{'  '.join(str(depart[j,i]) for j in range(nk))} \n" )
 
-
 def read_departures_forTS(fileName):
     """
     Reads NLTE departure coefficients from the input file compatible
@@ -54,6 +54,16 @@ def read_departures_forTS(fileName):
         departure coefficients
     abund : float
         chemical element abundance
+
+    Returns
+    -------
+    abund : float
+        abundance of the chemical element on log 12 scale
+    tau : np.array
+        depth scale in the model atmosphere used to solve for NLTE RT
+        (e.g. TAU500nm)
+    depart : np.ndarray
+        departure coefficients
     """
     with open(fileName, 'r') as f:
         data = [ l for l in f.readlines() if not l.startswith('#') ]
@@ -161,7 +171,7 @@ please supply new depth scale.")
     p = data['pointer'][0]
     levSubst = []
     depthSubst = []
-
+# TODO: read size separately for each record
     ndep, nk, depart, tau = read_binary_grid(bin_file, pointer=p)
     if rescale:
         departShape = ( len(data['pointer']), nk, len(depthScale))
@@ -171,6 +181,7 @@ please supply new depth scale.")
                 'depart' : np.full(departShape, np.nan),
                 'depthScale' : np.full((departShape[0],departShape[-1]), np.nan)
                 } )
+    ## TODO: move replacing nans and inf to preparation for interpolation
     for i in range(len( data['pointer'])):
         p = data['pointer'][i]
         ndep, nk, depart, tau = read_binary_grid(bin_file, pointer=p)
