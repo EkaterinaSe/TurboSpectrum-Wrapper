@@ -329,6 +329,11 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         el.comment += el.nlteData['comment']
         del el.nlteData['comment']
 
+        #el.scale = np.mean(el.nlteData['depart'])
+        #for i in range(len(el.nlteData['pointer'])):
+        #    el.nlteData['depart'][i] = el.nlteData['depart'][i] / el.scale
+
+
         """ Stack departure coefficients and depth scale for consistent interpolation """
         el.nlteData['departNew'] = np.full((np.shape(el.nlteData['depart'])[0], np.shape(el.nlteData['depart'])[1]+1, np.shape(el.nlteData['depart'])[2]), np.nan)
         for i in range(len(el.nlteData['pointer'])):
@@ -336,7 +341,17 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         el.nlteData['depart'] = el.nlteData['departNew'].copy()
         del el.nlteData['departNew']
         del el.nlteData['depthScale']
-
+        
+#        unAtmos = np.unique(el.nlteData['atmos_id']) 
+#        for atmos_id in unAtmos:
+#            abDim = int(np.sum( el.nlteData['atmos_id'] == atmos_id )/3)
+#            print(abDim)
+#            print(el.nlteData['abund'][np.where(el.nlteData['atmos_id'] == atmos_id)])
+#
+#            radnSelect = np.random.randint(size=abDim )
+#            pos = np.logical_and(el.nlteData['atmos_id'] == atmos_id, el.nlteData['abund'] == )
+#            print(pos)
+#
         """
         If element is Fe, than [Fe/H] == A(Fe) with an offset,
         so one of the parameters needs to be excluded to avoid degeneracy
@@ -463,7 +478,15 @@ No computations will be done for those")
                 take departure coefficient at that abundance
                 """
                 if len(x) >= 2:
-                    depart = interp1d(x, y, fill_value='extrapolate', axis=0)(el.abund[i])
+                    print(x)
+                    print(el.abund[i])
+                    #depart = interp1d(x, y, fill_value='extrapolate', axis=0)(el.abund[i])
+                    f = interp1d(x, y, axis=0)
+                    
+                    if not el.isFe or el.isH:
+                        depart = interp1d(x, y, axis=0)(el.abund[i] - self.inputParams['feh'][i] )
+                    else:
+                        depart = interp1d(x, y, axis=0)(el.abund[i])
                     tau = depart[0]
                     depart = depart[1:]
                     abund = el.abund[i]
@@ -492,6 +515,7 @@ at A({el.ID}) = {el.abund[i]}, [Fe/H] = {self.inputParams['feh'][i]} at i = {i}"
                         point['abund'] = el.abund[i]
                     pos, comment = find_distance_to_point(point, el.nlteData)
                     depart = el.nlteData['depart'][pos]
+
                     for k in el.interpolator['normCoord'][0]:
                         if ( np.abs(el.nlteData[k][pos] - point[k]) / point[k] ) > 0.5:
                             self.inputParams['comments'][i] += f"departure coefficients \
@@ -522,6 +546,7 @@ departure coefficients for {el.ID} at levels {np.unique(nanMask[1])} at depth {n
             el.departFiles[i] = departFile
             self.inputParams['comments'][i] += el.comment
 
+            print(self.inputParams['comments'][i])
 
 
 
