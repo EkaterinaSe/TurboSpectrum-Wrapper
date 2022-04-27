@@ -196,12 +196,15 @@ please supply new depth scale.")
             depart[infMask] = 1.
             levSubst.extend(np.unique(infMask[1]))
             depthSubst.extend(np.unique(infMask[0]))
+        if (depart < 0).any():
+            negMask = np.where( depart < 0 )
+            levSubst.extend(np.unique(negMask[1]))
+            depthSubst.extend(np.unique(negMask[0]))
+            depart[negMask] = 1.
         if rescale:
             f_int = interp1d(tau, depart, fill_value='extrapolate')
-            test.append(np.sum(100*(depart - f_int(tau)) /depart))
-            if np.sum(100*(depart - f_int(tau)) /depart) > 1:
-                 print(f"rescaled with precision above 1% at {data['atmos_id'][i]}")
-                 exit()
+            off = np.abs(depart/f_int(tau)-1)
+            test.append(np.mean( off[np.isfinite(off)] ))
             depart = f_int(depthScale)
             tau = depthScale
         data['depart'][i] = depart
@@ -210,10 +213,10 @@ please supply new depth scale.")
     levSubst   = np.unique(levSubst)
     depthSubst = np.unique(depthSubst)
     if len(levSubst):
-        data['comment'] = f" Found NaN/inf in the departure \
+        data['comment'] = f" Found NaN/inf or negative value in the departure \
 coefficients at levels {levSubst} at depth {depthSubst}, changed to 1 (==LTE) \n"
     else: data['comment'] = ""
-    print(f"average bias from rescaling: {np.mean(test)} %")
+    print(f"average bias from rescaling: {100*np.mean(test)} %")
     return data
 
 
