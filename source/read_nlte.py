@@ -171,6 +171,7 @@ please supply new depth scale.")
     p = data['pointer'][0]
     levSubst = []
     depthSubst = []
+    test = []
 # TODO: read size separately for each record
     ndep, nk, depart, tau = read_binary_grid(bin_file, pointer=p)
     if rescale:
@@ -197,6 +198,10 @@ please supply new depth scale.")
             depthSubst.extend(np.unique(infMask[0]))
         if rescale:
             f_int = interp1d(tau, depart, fill_value='extrapolate')
+            test.append(np.sum(100*(depart - f_int(tau)) /depart))
+            if np.sum(100*(depart - f_int(tau)) /depart) > 1:
+                 print(f"rescaled with precision above 1% at {data['atmos_id'][i]}")
+                 exit()
             depart = f_int(depthScale)
             tau = depthScale
         data['depart'][i] = depart
@@ -208,7 +213,7 @@ please supply new depth scale.")
         data['comment'] = f" Found NaN/inf in the departure \
 coefficients at levels {levSubst} at depth {depthSubst}, changed to 1 (==LTE) \n"
     else: data['comment'] = ""
-
+    print(f"average bias from rescaling: {np.mean(test)} %")
     return data
 
 

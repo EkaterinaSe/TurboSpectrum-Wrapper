@@ -506,15 +506,11 @@ No computations will be done for those")
                 take departure coefficient at that abundance
                 """
                 if len(x) >= 2:
-                    print(x)
-                    print(el.abund[i])
                     #depart = interp1d(x, y, fill_value='extrapolate', axis=0)(el.abund[i])
-                    f = interp1d(x, y, axis=0)
-                    
                     if not el.isFe or el.isH:
-                        depart = interp1d(x, y, axis=0)(el.abund[i] - self.inputParams['feh'][i] )
+                        depart = interp1d(x, y, fill_value = 'extrapolate',  axis=0)(el.abund[i] - self.inputParams['feh'][i] )
                     else:
-                        depart = interp1d(x, y, axis=0)(el.abund[i])
+                        depart = interp1d(x, y, fill_value = 'extrapolate', axis=0)(el.abund[i])
                     tau = depart[0]
                     depart = depart[1:]
                     abund = el.abund[i]
@@ -530,6 +526,7 @@ No computations will be done for those")
                 find the closest point in the grid and take a departure coefficient
                 for that point
                 """
+                depart = np.nan
                 if np.isnan(depart).all():
                     #if self.debug:
                     print(f"Found no departure coefficients \
