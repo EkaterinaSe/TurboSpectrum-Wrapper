@@ -369,8 +369,8 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         el.nlteData['depart'] = el.nlteData['departNew'].copy()
         del el.nlteData['departNew']
         del el.nlteData['depthScale']
-        
-#        unAtmos = np.unique(el.nlteData['atmos_id']) 
+
+#        unAtmos = np.unique(el.nlteData['atmos_id'])
 #        for atmos_id in unAtmos:
 #            abDim = int(np.sum( el.nlteData['atmos_id'] == atmos_id )/3)
 #            print(abDim)
@@ -510,7 +510,7 @@ No computations will be done for those")
                     print(el.abund[i])
                     #depart = interp1d(x, y, fill_value='extrapolate', axis=0)(el.abund[i])
                     f = interp1d(x, y, axis=0)
-                    
+
                     if not el.isFe or el.isH:
                         depart = interp1d(x, y, axis=0)(el.abund[i] - self.inputParams['feh'][i] )
                     else:
