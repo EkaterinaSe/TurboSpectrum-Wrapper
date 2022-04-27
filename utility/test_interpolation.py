@@ -11,8 +11,6 @@ import glob
 import time
 import warnings
 # local
-import convolve
-import read_config
 from atmos_package import model_atmosphere
 from model_atm_interpolation import *
 
