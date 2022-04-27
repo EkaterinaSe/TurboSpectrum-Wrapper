@@ -214,7 +214,7 @@ please supply new depth scale.")
     depthSubst = np.unique(depthSubst)
     if len(levSubst):
         data['comment'] = f" Found NaN/inf or negative value in the departure \
-coefficients at levels {levSubst} at depth {depthSubst}, changed to 1 (==LTE) \n"
+coefficients for some of the models at levels {levSubst} at depth {depthSubst}, changed to 1 (==LTE) \n"
     else: data['comment'] = ""
     print(f"average bias from rescaling: {100*np.mean(test)} %")
     return data

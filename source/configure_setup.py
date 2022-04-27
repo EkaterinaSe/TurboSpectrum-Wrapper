@@ -357,10 +357,9 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         el.comment += el.nlteData['comment']
         del el.nlteData['comment']
 
-        #el.scale = np.mean(el.nlteData['depart'])
-        #for i in range(len(el.nlteData['pointer'])):
-        #    el.nlteData['depart'][i] = el.nlteData['depart'][i] / el.scale
-
+        el.nlteData['depart'] = np.log10(el.nlteData['depart'])
+        el.DepartScaling = np.max(np.max(el.nlteData['depart'], axis=1), axis=0)
+        el.nlteData['depart'] = nlteGrid['depart'] / el.DepartScaling
 
         """ Stack departure coefficients and depth scale for consistent interpolation """
         el.nlteData['departNew'] = np.full((np.shape(el.nlteData['depart'])[0], np.shape(el.nlteData['depart'])[1]+1, np.shape(el.nlteData['depart'])[2]), np.nan)
@@ -370,15 +369,6 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         del el.nlteData['departNew']
         del el.nlteData['depthScale']
 
-#        unAtmos = np.unique(el.nlteData['atmos_id'])
-#        for atmos_id in unAtmos:
-#            abDim = int(np.sum( el.nlteData['atmos_id'] == atmos_id )/3)
-#            print(abDim)
-#            print(el.nlteData['abund'][np.where(el.nlteData['atmos_id'] == atmos_id)])
-#
-#            radnSelect = np.random.randint(size=abDim )
-#            pos = np.logical_and(el.nlteData['atmos_id'] == atmos_id, el.nlteData['abund'] == )
-#            print(pos)
 #
         """
         If element is Fe, than [Fe/H] == A(Fe) with an offset,
@@ -507,9 +497,9 @@ No computations will be done for those")
                 """
                 if len(x) >= 2:
                     if not el.isFe or el.isH:
-                        depart = interp1d(x, y, fill_value = 'extrapolate',  axis=0)(el.abund[i] - self.inputParams['feh'][i] )
+                        depart = 10**(interp1d(x, y, fill_value = 'extrapolate',  axis=0)(el.abund[i] - self.inputParams['feh'][i] ) * el.DepartScaling)
                     else:
-                        depart = interp1d(x, y, fill_value = 'extrapolate', axis=0)(el.abund[i])
+                        depart = 10**(interp1d(x, y, fill_value = 'extrapolate', axis=0)(el.abund[i]) * el.DepartScaling)
                     tau = depart[0]
                     depart = depart[1:]
                     abund = el.abund[i]
@@ -538,7 +528,7 @@ at A({el.ID}) = {el.abund[i]}, [Fe/H] = {self.inputParams['feh'][i]} at i = {i}"
                     if 'abund' not in point:
                         point['abund'] = el.abund[i]
                     pos, comment = find_distance_to_point(point, el.nlteData)
-                    depart = el.nlteData['depart'][pos]
+                    depart = 10**(el.nlteData['depart'][pos] * el.DepartScaling)
 
                     for k in el.interpolator['normCoord'][0]:
                         if ( np.abs(el.nlteData[k][pos] - point[k]) / point[k] ) > 0.5:
