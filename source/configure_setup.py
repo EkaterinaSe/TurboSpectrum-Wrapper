@@ -344,6 +344,9 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         del modelAtmGrid
         return interpolCoords
 
+    def restoreDepartScaling(depart, el):
+        return 10**(depart * el.DepartScaling)
+
     def prepInterpolation_NLTE(self, el, interpolCoords, rescale = False, depthScale = None):
         """
         Read grid of departure coefficients
@@ -357,17 +360,18 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         el.comment += el.nlteData['comment']
         del el.nlteData['comment']
 
-        el.nlteData['depart'] = np.log10(el.nlteData['depart'])
+        """ Scaling departure coefficients for the most efficient interpolation """
+        el.nlteData['depart'] = np.log10(el.nlteData['depart']+ 1.e-20)
         el.DepartScaling = np.max(np.max(el.nlteData['depart'], axis=1), axis=0)
         el.nlteData['depart'] = nlteGrid['depart'] / el.DepartScaling
 
-        """ Stack departure coefficients and depth scale for consistent interpolation """
-        el.nlteData['departNew'] = np.full((np.shape(el.nlteData['depart'])[0], np.shape(el.nlteData['depart'])[1]+1, np.shape(el.nlteData['depart'])[2]), np.nan)
-        for i in range(len(el.nlteData['pointer'])):
-            el.nlteData['departNew'][i] = np.vstack([el.nlteData['depthScale'][i], el.nlteData['depart'][i]])
-        el.nlteData['depart'] = el.nlteData['departNew'].copy()
-        del el.nlteData['departNew']
-        del el.nlteData['depthScale']
+        # """ Stack departure coefficients and depth scale for consistent interpolation """
+        # el.nlteData['departNew'] = np.full((np.shape(el.nlteData['depart'])[0], np.shape(el.nlteData['depart'])[1]+1, np.shape(el.nlteData['depart'])[2]), np.nan)
+        # for i in range(len(el.nlteData['pointer'])):
+        #     el.nlteData['departNew'][i] = np.vstack([el.nlteData['depthScale'][i], el.nlteData['depart'][i]])
+        # el.nlteData['depart'] = el.nlteData['departNew'].copy()
+        # del el.nlteData['departNew']
+        # del el.nlteData['depthScale']
 
 #
         """
@@ -481,6 +485,8 @@ No computations will be done for those")
                         f"/depCoeff_{el.ID}_{el.abund[i]:.3f}_{i}.dat"
             if not os.path.isfile(departFile):
                 x, y = [], []
+                # TODO: introduce class for nlte grid and set exceptions if grid wasn't rescaled
+                tau = el.nlteData['depthScale'][0]
                 for j in range(len(el.interpolator['abund'])):
                     point = [ self.inputParams[k][i] / el.interpolator['normCoord'][j][k] \
                              for k in el.interpolator['normCoord'][j] if k !='abund']
@@ -497,19 +503,17 @@ No computations will be done for those")
                 """
                 if len(x) >= 2:
                     if not el.isFe or el.isH:
-                        depart = 10**(interp1d(x, y, fill_value = 'extrapolate',  axis=0)(el.abund[i] - self.inputParams['feh'][i] ) * el.DepartScaling)
+                        depart = interp1d(x, y, fill_value = 'extrapolate',  axis=0)(el.abund[i] - self.inputParams['feh'][i] )
+                        depart = restoreDepartScaling(depart, el)
                     else:
-                        depart = 10**(interp1d(x, y, fill_value = 'extrapolate', axis=0)(el.abund[i]) * el.DepartScaling)
-                    tau = depart[0]
-                    depart = depart[1:]
+                        depart = interp1d(x, y, fill_value = 'extrapolate', axis=0)(el.abund[i])
+                        depart = restoreDepartScaling(depart, el)
                     abund = el.abund[i]
                 elif len(x) == 1 and el.isH:
-                    tau = y[0][0]
-                    depart = y[0][1:]
+                    depart = y[0]
                     abund = el.abund[i]
                 else:
                     depart = np.nan
-
                 """
                 If interpolation failed e.g. if the point is outside of the grid,
                 find the closest point in the grid and take a departure coefficient
@@ -528,7 +532,9 @@ at A({el.ID}) = {el.abund[i]}, [Fe/H] = {self.inputParams['feh'][i]} at i = {i}"
                     if 'abund' not in point:
                         point['abund'] = el.abund[i]
                     pos, comment = find_distance_to_point(point, el.nlteData)
-                    depart = 10**(el.nlteData['depart'][pos] * el.DepartScaling)
+                    depart = el.nlteData['depart'][pos]
+                    depart = restoreDepartScaling(depart, el)
+                    tau = el.nlteData['depthScale'][pos]
 
                     for k in el.interpolator['normCoord'][0]:
                         if ( np.abs(el.nlteData[k][pos] - point[k]) / point[k] ) > 0.5:
@@ -537,8 +543,6 @@ for {el.ID} were taken at point with the following parameters:\n"
                             for k in el.interpolator['normCoord'][0]:
                                 self.inputParams['comments'][i] += f"{k} = {el.nlteData[k][pos]}\
  (off by {point[k] - el.nlteData[k][pos] }) \n"
-                    tau = depart[0]
-                    depart = depart[1:]
                     abund = el.abund[i]
             else:
                 print('found departure file:', departFile, 'reading')

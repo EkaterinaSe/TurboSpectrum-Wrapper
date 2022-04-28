@@ -14,14 +14,19 @@ from source.model_atm_interpolation import get_all_ma_parameters, NDinterpolateG
 from source.read_nlte import *
 
 def testInterpolNLTE(nlte_data, interpol_parameters,  i):
-    if 'depthScale' in nlte_data:
-        nlte_data['departNew'] = np.full((np.shape(nlte_data['depart'])[0], np.shape(nlte_data['depart'])[1]+1, np.shape(nlte_data['depart'])[2]), np.nan)
-        for i in range(len(nlte_data['pointer'])):
-            nlte_data['departNew'][i] = np.vstack([nlte_data['depthScale'][i], nlte_data['depart'][i]])
-        nlte_data['depart'] = nlte_data['departNew'].copy()
-        del nlte_data['departNew']
-        del nlte_data['depthScale']
+    departOrig = nlte_data['depart'][i]
 
+    if 'depthScale' in nlte_data:
+        tau = nlte_data['depthScale'][i]
+    #     nlte_data['departNew'] = np.full((np.shape(nlte_data['depart'])[0], np.shape(nlte_data['depart'])[1]+1, np.shape(nlte_data['depart'])[2]), np.nan)
+    #     for i in range(len(nlte_data['pointer'])):
+    #         nlte_data['departNew'][i] = np.vstack([nlte_data['depthScale'][i], nlte_data['depart'][i]])
+    #     nlte_data['depart'] = nlte_data['departNew'].copy()
+    #     del nlte_data['departNew']
+    #     del nlte_data['depthScale']
+    else:
+        print('no depth scale provided in nlte grid. stopped')
+        exit()
 
     if 'comment' in nlte_data:
         if len(nlte_data['comment'].strip()) > 0:
@@ -47,7 +52,9 @@ def testInterpolNLTE(nlte_data, interpol_parameters,  i):
         interp_f, params_to_interpolate = NDinterpolateGrid(nlte_dataCopy, interpol_parameters, valueKey = 'depart')
 
         point = np.array([ nlte_data[k][i] / params_to_interpolate[k] for k in params_to_interpolate])
-        return interp_f(point)[0]
+        departInterpol = interp_f(point)[0]#[1:]
+
+        return tau, departOrig, departInterpol
 
 if __name__ == '__main__':
     bin_file = './NLTEgrid_H_MARCS_May-10-2021.bin'
