@@ -529,7 +529,7 @@ at A({el.ID}) = {el.abund[i]}, [Fe/H] = {self.inputParams['feh'][i]} at i = {i}"
                     point = {}
                     for k in el.interpolator['normCoord'][0]:
                         point[k] = self.inputParams[k][i]
-                    if 'abund' not in point:
+                    if 'abund' not in point
                         point['abund'] = el.abund[i]
                     pos, comment = find_distance_to_point(point, el.nlteData)
                     depart = el.nlteData['depart'][pos]
