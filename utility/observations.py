@@ -10,7 +10,42 @@ from astropy import constants as const
 from astropy.modeling import Fittable1DModel, Parameter
 from copy import deepcopy
 
-
+def readSpectrumTSwrapper(filePath):
+    with open(filePath, 'r') as f:
+        data = f.readlines()
+    specData = [l for l in data if not l.startswith('#') and not '*' in l and np.isfinite(float(l.split()[-1])) ]
+    if len(specData) > 0:
+        wvl, flux = np.loadtxt(specData, unpack=True, usecols=(0,1), dtype=float)
+        spec = spectrum(wvl,  flux, res = np.inf)
+        spec.labels = []
+        header = []
+        for l in data:
+            if len(l.replace('#', '').replace('\n', '').strip()) == 0:
+                break
+            if l.startswith('#'):
+                header.append(l)
+        fundPar = header[3:7]
+        for l in fundPar:
+            k, v = l.replace('#','').split('=')
+            k = k.strip().lower()
+            v = float(v.replace('\n','').strip())
+            spec.__dict__[k] = v
+            spec.labels.append(k)
+        elements = header[7:]
+        for l in elements:
+           el, abund = l.replace('#','').split('=')
+           el = el.split('(')[-1].split(')')[0].strip()
+           if '(' in abund:
+               abund = abund.split('(')[0].strip()
+           if '[' in abund:
+               abund = abund.split('[')[0].strip()
+           abund = float(abund)
+           spec.__dict__[el] = abund
+           spec.labels.append(el)
+        return spec
+    else:
+        print(f"empty file {filePath}") 
+        return None
 
 def read_observations(path, format):
     """ Read observed spectrum """
