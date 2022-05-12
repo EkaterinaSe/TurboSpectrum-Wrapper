@@ -6,7 +6,7 @@ import pickle
 from scipy import interpolate
 from observations import readSpectrumTSwrapper, spectrum, read_observations
 from multiprocessing import Pool
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, fmin_bfgs
 
 
 def readModelSpectralGrid(ListOfModelSpectra):
@@ -55,12 +55,11 @@ def gatherModelData(Path):
 
     return modelGrid
 
-def getClosestModel(lamObs, modelGrid, coords, labels):
+def getClosestModel(specObs, modelGrid, coords, labels):
     dist = 0
     for i,k in enumerate(coords):
         print(f"{k} = {labels[i]}")
         dist += ( modelGrid[k] - labels[i] )**2
-    print()
     pos = np.where(dist == min(dist))[0]
 #    if len(pos) > 1:
 #        print(f"found {len(pos)} 'closest' spectra:")
@@ -68,9 +67,12 @@ def getClosestModel(lamObs, modelGrid, coords, labels):
 #            print(spectraGrid['path'][p].split('/')[-1])
     pos = pos[0]
     modSpec = readSpectrumTSwrapper( modelGrid['path'][pos] )
-    flux = np.interp(lamObs, modSpec.lam, modSpec.flux )
-    return flux
+    print(modelGrid['path'][pos].split('/')[-1])
+    print()
+    flux = np.interp(specObs.lam, modSpec.lam, modSpec.flux )
+    chi2 = np.sqrt(np.sum( ( flux - specObs.flux ) ** 2 ))
 
+    return chi2
 
 def fitObservedSpectrum(obsSpec, modelGrid, fitForLabels = None):
 
@@ -84,16 +86,22 @@ def fitObservedSpectrum(obsSpec, modelGrid, fitForLabels = None):
         initLabels.append( np.mean( modelGrid[k] ) )
     print(initLabels)
 
-    fitFunc = lambda lam, *label : getClosestModel(lam, modelGrid, fitForLabels, label)
-
-    popt, pcov = curve_fit(
-                            fitFunc, obsSpec.lam,
-                            obsSpec.flux,
-                            p0 = initLabels,
-                            )
-    bestFitFlux = getClosestModel(obsSpec.lam, modelGrid, fitForLabels, popt)
+    fitFunc = lambda label : getClosestModel(obsSpec, modelGrid, fitForLabels, label)
+    epsilon = []
+    for k in fitForLabels:
+      epsilon.append(np.std(modelGrid[k])/1000)
+    popt = fmin_bfgs( fitFunc, initLabels, epsilon = epsilon)
+    
     print(popt)
-    return popt, bestFitFlux
+    #fitFunc = lambda lam, *label : getClosestModel(lam, modelGrid, fitForLabels, label)
+    #popt, pcov = curve_fit(
+    #                        fitFunc, obsSpec.lam,
+    #                        obsSpec.flux,
+    #                        p0 = initLabels,
+    #                        )
+    #bestFitFlux = getClosestModel(obsSpec.lam, modelGrid, fitForLabels, popt)
+    #print(popt)
+    #return popt, bestFitFlux
 
 
 if __name__ == '__main__':
@@ -106,7 +114,7 @@ if __name__ == '__main__':
 
     modelGrid = gatherModelData(modelPath)
 
-    fitForLabels = ['teff', 'logg', 'feh']
+    fitForLabels = ['teff', 'logg', 'feh', 'vturb']
     for obsSpecPath in glob.glob(obsPath):
         w, f = read_observations(obsSpecPath, format = 'ascii')
         obsSpec = spectrum(
