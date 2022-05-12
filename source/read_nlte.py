@@ -1,6 +1,7 @@
 import numpy as np
 import os
 from scipy.interpolate import interp1d
+from scipy import integrate
 from sys import exit
 import pickle
 import glob
@@ -196,17 +197,22 @@ please supply new depth scale.")
             depart[infMask] = 1.
             levSubst.extend(np.unique(infMask[1]))
             depthSubst.extend(np.unique(infMask[0]))
+        if rescale:
+            f_int = interp1d(tau, depart, fill_value='extrapolate')
+            depart = f_int(depthScale)
+            tau = depthScale
+# questinable, but I tested, and they somethimes go from 0.01 to -0.1, so...
+# I don't know, Maria doesn't give me time to think or do things properly, I am so tired
+        if np.isinf(depart).any():
+            infMask = np.where(np.isinf(depart))
+            depart[infMask] = 1.
+            levSubst.extend(np.unique(infMask[1]))
+            depthSubst.extend(np.unique(infMask[0]))
         if (depart < 0).any():
             negMask = np.where( depart < 0 )
             levSubst.extend(np.unique(negMask[1]))
             depthSubst.extend(np.unique(negMask[0]))
-            depart[negMask] = 1.
-        if rescale:
-            f_int = interp1d(tau, depart, fill_value='extrapolate')
-            off = np.abs(depart/f_int(tau)-1)
-            test.append(np.mean( off[np.isfinite(off)] ))
-            depart = f_int(depthScale)
-            tau = depthScale
+            depart[negMask] = 0.
         data['depart'][i] = depart
         data['depthScale'][i] = tau
 
@@ -216,7 +222,6 @@ please supply new depth scale.")
         data['comment'] = f" Found NaN/inf or negative value in the departure \
 coefficients for some of the models at levels {levSubst} at depth {depthSubst}, changed to 1 (==LTE) \n"
     else: data['comment'] = ""
-    print(f"average bias from rescaling: {100*np.mean(test)} %")
     return data
 
 

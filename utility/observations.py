@@ -10,7 +10,42 @@ from astropy import constants as const
 from astropy.modeling import Fittable1DModel, Parameter
 from copy import deepcopy
 
-
+def readSpectrumTSwrapper(filePath):
+    with open(filePath, 'r') as f:
+        data = f.readlines()
+    specData = [l for l in data if not l.startswith('#') and not '*' in l and np.isfinite(float(l.split()[-1])) ]
+    if len(specData) > 0:
+        wvl, flux = np.loadtxt(specData, unpack=True, usecols=(0,1), dtype=float)
+        spec = spectrum(wvl,  flux, res = np.inf)
+        spec.labels = []
+        header = []
+        for l in data:
+            if len(l.replace('#', '').replace('\n', '').strip()) == 0:
+                break
+            if l.startswith('#'):
+                header.append(l)
+        fundPar = header[3:7]
+        for l in fundPar:
+            k, v = l.replace('#','').split('=')
+            k = k.strip().lower()
+            v = float(v.replace('\n','').strip())
+            spec.__dict__[k] = v
+            spec.labels.append(k)
+        elements = header[7:]
+        for l in elements:
+           el, abund = l.replace('#','').split('=')
+           el = el.split('(')[-1].split(')')[0].strip()
+           if '(' in abund:
+               abund = abund.split('(')[0].strip()
+           if '[' in abund:
+               abund = abund.split('[')[0].strip()
+           abund = float(abund)
+           spec.__dict__[el] = abund
+           spec.labels.append(el)
+        return spec
+    else:
+        print(f"empty file {filePath}") 
+        return None
 
 def read_observations(path, format):
     """ Read observed spectrum """
@@ -86,8 +121,9 @@ class spectrum(object):
         self.lam_step = np.median(self.lam[1:] - self.lam[:-1])
 
 
-    def convolve_resolution(self, R_new):
-        print(F"Convolving spectrum from R={self.R} to R={R_new}...")
+    def convolve_resolution(self, R_new, quite=True):
+        if not quite:
+            print(F"Convolving spectrum from R={self.R} to R={R_new}...")
 
         d_lam = (np.mean(self.lam)/R_new)
         sigma = d_lam / (2.0 * np.sqrt(2. * np.log(2.)))
@@ -95,7 +131,7 @@ class spectrum(object):
         self.flux =  convolution.convolve(self.flux, kernel)
         self.R = R_new
 
-    def convolve_rotation(self, Vrot, debug):
+    def convolve_rotation(self, Vrot,  quite=True):
         """
         Convolve with rotational profile
         Identical to faltbon (tested on O triplet)
@@ -113,7 +149,7 @@ class spectrum(object):
         elif not np.isnan(self.Vrot):
             spec_deltaV = self.lam_step/np.mean(self.lam) * const.c.to('km/s').value
             if (spec_deltaV) > self.Vrot:
-                if debug:
+                if not  quite:
                     print(F"WARNING: resolution of model spectra {spec_deltaV} is less than Vrot={self.Vrot}. No convolution will be done, Vrot=0.")
                 self.Vrot = 0
             else:
@@ -140,7 +176,7 @@ class spectrum(object):
             print(F"Unexpected Vrot={self.Vrot} [km/s]. Stopped.")
             exit(1)
 
-    def convolve_macroturbulence(self, Vmac, debug=False):
+    def convolve_macroturbulence(self, Vmac,  quite=True):
         """
         Convolve with macro-turbulence (radial-tangential profile)
         Identical to faltbon (tested on O triplet)
@@ -159,7 +195,7 @@ class spectrum(object):
         elif not np.isnan(self.Vmac):
             spec_deltaV = self.lam_step/np.mean(self.lam) * const.c.to('km/s').value
             if (spec_deltaV) > self.Vmac:
-                if debug:
+                if not  quite:
                     print(F"WARNING: resolution of model spectra {spec_deltaV} is less than Vmac={self.Vmac}. No convolution will be done, Vmac = 0.")
                 self.Vmac = 0
             else:

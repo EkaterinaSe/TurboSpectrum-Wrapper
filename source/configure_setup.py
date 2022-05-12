@@ -38,6 +38,8 @@ def mkdir(s):
     os.mkdir(s)
 
 
+def restoreDepartScaling(depart, el):
+    return 10**(depart * el.DepartScaling)
 def read_random_input_parameters(file):
     """
     Read strictly formatted input parameters
@@ -265,48 +267,14 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         Departure coefficients are rescaled to the same depth scale \
         as in each model atmosphere
         """
-        # TODO: parallelise if more than 1 cpu is requested anyways
         for elID, el in self.inputParams['elements'].items():
             if el.nlte:
                 print(el.ID)
-                doInterpolate = False
-                el.departFiles = np.full(self.inputParams['count'], None)
-
-                for i in range(len(el.abund)):
-                    departFile = el.departDir + \
-                            f"/depCoeff_{el.ID}_{el.abund[i]:.3f}_{i}.dat"
-                    if not os.path.isfile(departFile):
-                        doInterpolate = True
-                        break
-                    else:
-                        el.departFiles[i] = departFile
-#                        abund, tau, depart = read_departures_forTS(departFile)
-#                        if np.shape(depart)[1] == np.shape(tau):
-#                            depart = depart.T
-#                            write_departures_forTS(departFile, tau, depart, abund)
-#                            el.departFiles[i] = departFile
-#                        if np.isnan(depart).any():
-#                            print('found nan in ', departFile)
-#                            nanMask = np.where(np.isnan(depart))
-#                            self.inputParams['comments'][i] += f"Found NaN in \
-#departure coefficients for {el.ID} at levels {np.unique(nanMask[1])}, changed to 1 (==LTE) \n"
-#                            depart[nanMask] = 1.
-#                            write_departures_forTS(departFile, tau, depart, abund)
-#                        if np.isinf(depart).any():
-#                            print('found inf in ', departFile)
-#                            nanMask = np.where(np.isinf(depart))
-#                            self.inputParams['comments'][i] += f"Found inf in \
-#departure coefficients for {el.ID} at levels {np.unique(nanMask[1])}, depth {np.unique(nanMask[0])}, changed to 1 (==LTE) \n"
-#                            depart[nanMask] = 1.
-#                            write_departures_forTS(departFile, tau, depart, abund)
-#                            el.departFiles[i] = departFile
-
-                if doInterpolate:
-                    self.prepInterpolation_NLTE(el, interpolCoords, \
-                        rescale = True, depthScale = self.depthScaleNew)
-                    self.interpolateAllPoints_NLTE(el)
-                    del el.nlteData
-                    del el.interpolator
+                self.prepInterpolation_NLTE(el, interpolCoords, \
+                    rescale = True, depthScale = self.depthScaleNew)
+                self.interpolateAllPoints_NLTE(el)
+                del el.nlteData
+                del el.interpolator
 # TODO: move the four routines below into model_atm_interpolation
 
     def prepInterpolation_MA(self):
@@ -344,8 +312,6 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         del modelAtmGrid
         return interpolCoords
 
-    def restoreDepartScaling(depart, el):
-        return 10**(depart * el.DepartScaling)
 
     def prepInterpolation_NLTE(self, el, interpolCoords, rescale = False, depthScale = None):
         """
@@ -357,13 +323,19 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
 
         el.nlteData = read_fullNLTE_grid( el.nlteGrid, el.nlteAux, \
                                     rescale=rescale, depthScale = depthScale, saveMemory = self.saveMemory )
+                                    #rescale=False, depthScale = depthScale, saveMemory = self.saveMemory )
         el.comment += el.nlteData['comment']
         del el.nlteData['comment']
 
         """ Scaling departure coefficients for the most efficient interpolation """
+        pos = np.isnan(np.log10(el.nlteData['depart']+ 1.e-20))
+        print(f"{np.sum(pos)} points become NaN under log10")
+
         el.nlteData['depart'] = np.log10(el.nlteData['depart']+ 1.e-20)
+        pos = np.where(np.isnan(el.nlteData['depart']))
+
         el.DepartScaling = np.max(np.max(el.nlteData['depart'], axis=1), axis=0)
-        el.nlteData['depart'] = nlteGrid['depart'] / el.DepartScaling
+        el.nlteData['depart'] = el.nlteData['depart'] / el.DepartScaling
 
         # """ Stack departure coefficients and depth scale for consistent interpolation """
         # el.nlteData['departNew'] = np.full((np.shape(el.nlteData['depart'])[0], np.shape(el.nlteData['depart'])[1]+1, np.shape(el.nlteData['depart'])[2]), np.nan)
@@ -481,12 +453,12 @@ No computations will be done for those")
         """
         el.departFiles = np.full(self.inputParams['count'], None)
         for i in range(len(el.abund)):
-            departFile = el.departDir + \
+                departFile = el.departDir + \
                         f"/depCoeff_{el.ID}_{el.abund[i]:.3f}_{i}.dat"
-            if not os.path.isfile(departFile):
+#            if not os.path.isfile(departFile):
                 x, y = [], []
                 # TODO: introduce class for nlte grid and set exceptions if grid wasn't rescaled
-                tau = el.nlteData['depthScale'][0]
+                tau = self.depthScaleNew
                 for j in range(len(el.interpolator['abund'])):
                     point = [ self.inputParams[k][i] / el.interpolator['normCoord'][j][k] \
                              for k in el.interpolator['normCoord'][j] if k !='abund']
@@ -501,29 +473,34 @@ No computations will be done for those")
                 If only one point is present (e.g. A(H) is always 12),
                 take departure coefficient at that abundance
                 """
+                print(f"found {len(y)} data-sets at {len(x)} abundances...")
                 if len(x) >= 2:
+                    print('now linearly interpolating over abundance:', x)
                     if not el.isFe or el.isH:
-                        depart = interp1d(x, y, fill_value = 'extrapolate',  axis=0)(el.abund[i] - self.inputParams['feh'][i] )
+                        depart= interp1d(x, y, fill_value = 'extrapolate',  axis=0)(el.abund[i] - self.inputParams['feh'][i] )
                         depart = restoreDepartScaling(depart, el)
                     else:
                         depart = interp1d(x, y, fill_value = 'extrapolate', axis=0)(el.abund[i])
                         depart = restoreDepartScaling(depart, el)
                     abund = el.abund[i]
+                    #print('NaNs?', np.isnan(depart).any())
                 elif len(x) == 1 and el.isH:
+                    print(f'only one point at abundandance={x} found, will accept depart coeff.')
                     depart = y[0]
                     abund = el.abund[i]
+                    depart = restoreDepartScaling(depart, el)
+                    #print('NaNs?', np.isnan(depart).any())
                 else:
+                    print(f"Found no departure coefficients \
+at A({el.ID}) = {el.abund[i]}, [Fe/H] = {self.inputParams['feh'][i]} at i = {i}")
                     depart = np.nan
                 """
                 If interpolation failed e.g. if the point is outside of the grid,
                 find the closest point in the grid and take a departure coefficient
                 for that point
                 """
-                depart = np.nan
                 if np.isnan(depart).all():
                     #if self.debug:
-                    print(f"Found no departure coefficients \
-at A({el.ID}) = {el.abund[i]}, [Fe/H] = {self.inputParams['feh'][i]} at i = {i}")
                     print(f"attempting to find the closest point the in the grid of departure coefficients")
 # TODO: move the four routines below into model_atm_interpolation
                     point = {}
@@ -544,27 +521,9 @@ for {el.ID} were taken at point with the following parameters:\n"
                                 self.inputParams['comments'][i] += f"{k} = {el.nlteData[k][pos]}\
  (off by {point[k] - el.nlteData[k][pos] }) \n"
                     abund = el.abund[i]
-            else:
-                print('found departure file:', departFile, 'reading')
-                abund, tau, depart = read_departures_forTS(departFile)
-
-
-            if np.isnan(depart).any():
-                  nanMask = np.where(np.isnan(depart))
-                  self.inputParams['comments'][i] += f"Found NaN in \
-departure coefficients for {el.ID} at levels {np.unique(nanMask[1])} at depth {np.unique(nanMask[0])}, changed to 1 (==LTE) \n"
-                  depart[nanMask] = 1.
-
-            if np.isinf(depart).any():
-                nanMask = np.where(np.isinf(depart))
-                self.inputParams['comments'][i] += f"Found inf in \
-departure coefficients for {el.ID} at levels {np.unique(nanMask[1])} at depth {np.unique(nanMask[0])}, changed to 1 (==LTE) \n"
-                depart[nanMask] = 1.
-            write_departures_forTS(departFile, tau, depart, abund)
-            el.departFiles[i] = departFile
-            self.inputParams['comments'][i] += el.comment
-
-            print(self.inputParams['comments'][i])
+                write_departures_forTS(departFile, tau, depart, abund)
+                el.departFiles[i] = departFile
+                self.inputParams['comments'][i] += el.comment
 
 
 
