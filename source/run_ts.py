@@ -147,48 +147,50 @@ def parallel_worker(arg):
         # create model atmosphere and run babsma on it
         atmos = model_atmosphere()
         if not isinstance(set.inputParams['modelAtmInterpol'][i], type(None)):
-            atmos.depth_scale, atmos.temp, atmos.ne, atmos.vturb = \
-                set.inputParams['modelAtmInterpol'][i]
-            set.inputParams['modelAtmInterpol'][i] = None
-            atmos.temp, atmos.ne = 10**(atmos.temp), 10**(atmos.ne)
-            atmos.depth_scale_type = 'TAU500'
-            atmos.feh, atmos.logg = set.inputParams['feh'][i], set.inputParams['logg'][i]
-            atmos.spherical = False
-            atmos.id = f"interpol_{i:05d}_{set.jobID}"
-            atmos.path = f"{tempDir}/atmos.{atmos.id}"
-            atmos.write(atmos.path, format = 'ts')
-
-            """ Compute model atmosphere opacity """
-            modelOpacFile = compute_babsma(set, atmos)
-
-            """ Compute the spectrum """
             specResultFile = f"{tempDir}/spec_{set.jobID}_{i}"
-            if set.nlte:
-                specResultFile = specResultFile + '_NLTE'
-            else:
-                specResultFile = specResultFile + '_LTE'
+            if not os.path.isfile(specResultFile) or os.path.getsize(specResultFile) == 0:
 
-            header = f"computed with TS NLTE v.20 by E.Magg (emagg at mpia dot de) \n\
+                atmos.depth_scale, atmos.temp, atmos.ne, atmos.vturb = \
+                    set.inputParams['modelAtmInterpol'][i]
+                set.inputParams['modelAtmInterpol'][i] = None
+                atmos.temp, atmos.ne = 10**(atmos.temp), 10**(atmos.ne)
+                atmos.depth_scale_type = 'TAU500'
+                atmos.feh, atmos.logg = set.inputParams['feh'][i], set.inputParams['logg'][i]
+                atmos.spherical = False
+                atmos.id = f"interpol_{i:05d}_{set.jobID}"
+                atmos.path = f"{tempDir}/atmos.{atmos.id}"
+                atmos.write(atmos.path, format = 'ts')
+    
+                """ Compute model atmosphere opacity """
+                modelOpacFile = compute_babsma(set, atmos)
+    
+                """ Compute the spectrum """
+                if set.nlte:
+                    specResultFile = specResultFile + '_NLTE'
+                else:
+                    specResultFile = specResultFile + '_LTE'
+    
+                header = f"computed with TS NLTE v.20 by E.Magg (emagg at mpia dot de) \n\
 Date: {today} \n\
 Input parameters: \n\
 "
-            for k in set.freeInputParams:
-                header += f"{k} = {set.inputParams[k][i]} \n"
-            for el in set.inputParams['elements'].values():
-                header += f"A({el.ID}) = {el.abund[i]} {['NLTE' if el.nlte else 'LTE']} \n"
-
-            #for el in set.inputParams['elements'].values():
-            #    specResultFile = specResultFile + f"_{el.ID}{el.abund[i]}"
-
-            if set.nlte:
-                nlteInfoFile   = f"{tempDir}/NLTEinfoFile_{set.jobID}.txt"
-                departFilesExist = create_NlteInfoFile(nlteInfoFile, set, i)
-                if departFilesExist:
-                    compute_bsyn(set, i, atmos, modelOpacFile, specResultFile, nlteInfoFile)
-            else:
-                compute_bsyn(set, i, atmos, modelOpacFile, specResultFile, None)
-
-            """ Add header, comments and save to the common output directory """
+                for k in set.freeInputParams:
+                    header += f"{k} = {set.inputParams[k][i]} \n"
+                for el in set.inputParams['elements'].values():
+                    header += f"A({el.ID}) = {el.abund[i]} {['NLTE' if el.nlte else 'LTE']} \n"
+    
+                #for el in set.inputParams['elements'].values():
+                #    specResultFile = specResultFile + f"_{el.ID}{el.abund[i]}"
+    
+                if set.nlte:
+                    nlteInfoFile   = f"{tempDir}/NLTEinfoFile_{set.jobID}.txt"
+                    departFilesExist = create_NlteInfoFile(nlteInfoFile, set, i)
+                    if departFilesExist:
+                        compute_bsyn(set, i, atmos, modelOpacFile, specResultFile, nlteInfoFile)
+                else:
+                    compute_bsyn(set, i, atmos, modelOpacFile, specResultFile, None)
+    
+                """ Add header, comments and save to the common output directory """
             if os.path.isfile(specResultFile) and os.path.getsize(specResultFile) > 0:
                 with open(f"{set.spectraDir}/{specResultFile.split('/')[-1]}", 'w') as moveSpec:
                     for l in header.split('\n'):

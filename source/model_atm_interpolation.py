@@ -12,7 +12,7 @@ import glob
 import time
 import warnings
 # local
-from .atmos_package import model_atmosphere
+from atmos_package import model_atmosphere
 
 
 def get_all_ma_parameters(models_path, depthScaleNew, format='m1d', debug = False):
