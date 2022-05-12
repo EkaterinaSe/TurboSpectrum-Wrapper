@@ -44,7 +44,7 @@ def readSpectrumTSwrapper(filePath):
            spec.labels.append(el)
         return spec
     else:
-        print(f"empty file {filePath}") 
+        print(f"empty file {filePath}")
         return None
 
 def read_observations(path, format):
