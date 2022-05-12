@@ -59,7 +59,7 @@ def read_observations(path, format):
         # nm to AA
         w_obs = w_obs * 10
     if format.lower() == 'ascii':
-        w_obs, f_obs = np.loadtxt(path, unpack=True)
+        w_obs, f_obs = np.loadtxt(path, unpack=True, usecols=(0,1))
 
     # EXCLUDE REPEATING WAVELENGTH POINTS
     _, un_ind = np.unique(w_obs, return_index=True)
