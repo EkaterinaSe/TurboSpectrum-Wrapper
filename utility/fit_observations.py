@@ -13,7 +13,7 @@ def gatherModelData(Path):
     else:
         print(f"reading model spectra under {Path} ...")
         # TODO: parallelise
-        ncpu = 1
+        ncpu = 50
         specList = glob.glob(Path)
         args = [ specList[i::ncpu] for i in range(ncpu)]
         modelGrid = { }
