@@ -47,7 +47,7 @@ class linelist(object):
             el = element('H')
             el.Z = 1
             el.nlines = len(self.data)
-            
+
             for rec in self.data:
                 wave = float(rec.split()[0])
                 ep = float(rec.split()[3])
@@ -106,14 +106,11 @@ def lines_around(linelist, wave_c, dist):
     Find in the linelist and print all lines (of diff. elements)
     within dist Å from the central wavelength
     """
-    for el in linelist.keys():
-        for ion, data in linelist[el].items():
-            pos = np.where( abs( data['wave'] - wave_c ) < dist )[0]
-            if len(pos)>0:
-                print(f"{el} {ion}")
-                for p in pos:
-                    print(f"{data['rec'][p]}\n")
-                print()
+    for el in linelist.elements:
+        for l in el.lines:
+            if np.abs(l.lam - wave_c) < dist:
+                print(f"{l.ID} {l.lam:.3f} ep={l.Ei} log(gf)={l.loggf}")
+                print(l.comment)
 
 if __name__ == '__main__':
 
