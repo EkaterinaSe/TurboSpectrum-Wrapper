@@ -324,6 +324,10 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         el.nlteData = read_fullNLTE_grid( el.nlteGrid, el.nlteAux, \
                                     rescale=rescale, depthScale = depthScale, saveMemory = self.saveMemory )
                                     #rescale=False, depthScale = depthScale, saveMemory = self.saveMemory )
+        t = np.where(el.nlteData['depart'] > 100000)
+        print(f"{len(np.unique(t[0]))} models")
+        print(f"levels: {np.unique(t[1])}")
+        print(f"depth: {np.unique(t[2])}")
         el.comment += el.nlteData['comment']
         del el.nlteData['comment']
 
@@ -506,7 +510,7 @@ at A({el.ID}) = {el.abund[i]}, [Fe/H] = {self.inputParams['feh'][i]} at i = {i}"
                     point = {}
                     for k in el.interpolator['normCoord'][0]:
                         point[k] = self.inputParams[k][i]
-                    if 'abund' not in point
+                    if 'abund' not in point:
                         point['abund'] = el.abund[i]
                     pos, comment = find_distance_to_point(point, el.nlteData)
                     depart = el.nlteData['depart'][pos]
