@@ -7,10 +7,16 @@ from copy import deepcopy
 # TODO: change lists to arrays!
 def read_atmos_marcs(self, file):
     """
-    Read model atmosphere in standart MARCS format i.e. *.mod
-    input:
-    (string) file: path to model atmosphere
+    Read a model atmosphere in marcs format
+
+    Parameters
+    ----------
+    self : model_atmosphere
+        empty initialised model atmosphere object
+    file : str
+        from which file to read the model
     """
+
     # Boltzmann constant
     k_B = 1.38064852E-16
 
@@ -62,18 +68,24 @@ def read_atmos_marcs(self, file):
 
 def read_atmos_m1d(self, file):
     """
-    Read model atmosphere in MULTI 1D input format, i.e. atmos.*
-    M1D input model atmosphere is strictly formatted
-    input:
-    (string) file: path to model atmosphere file
+    Read a model atmosphere in the MULTI2.4 format (e.g. 'atmos.sun').
+    MULTI format is short on info, so some guessing for parameters is done
+
+    Parameters
+    ----------
+    self : model_atmosphere
+        empty initialised model atmosphere object
+    file : str
+        from which file to read the model
     """
+    lines = [ l.strip() for l in open( file , 'r').readlines() if not l.startswith('*')]
     data = []
-    # exclude comment lines, starting with *
-    for line in open( file , 'r').readlines():
-        if not line.startswith('*'):
-            data.append(line.strip())
-        elif 'Teff' in line:
-            self.teff = float(line.split()[-1].split('=')[-1])
+    for l in lines:
+        if 'Teff' in l:
+            self.teff = float(l.split()[-1].split('=')[-1])
+        else:
+            data.append( l )
+
     # read header
     self.id = data[0]
     self.depth_scale_type = data[1]
@@ -88,7 +100,7 @@ def read_atmos_m1d(self, file):
         self.ne.append( spl[2] )
         self.vmac.append( spl[3] )
         self.vturb.append( spl[4] )
-    # info that's not provided in the model atmosphere file:
+    # guess for the info that's not provided in the model atmosphere file:
     if not 'teff' in self.__dict__.keys():
         self.teff   = np.nan
     self.X      = np.nan
@@ -96,40 +108,48 @@ def read_atmos_m1d(self, file):
     self.Z      = np.nan
     self.mass   = np.nan
     # add comments here
-    self.header = 'Read from M1D formatted model atmosphere %s' %( file.split('/')[-1].strip() )
+    self.header = f"Read from M1D formatted model atmosphere {file.split('/')[-1].strip()}"
 
     return
 
 
 def write_atmos_m1d(atmos, file):
     """
-    Write model atmosphere in MULTI 1D input format, i.e. atmos.*
-    input:
-    (object of class model_atmosphere): atmos
-    (string) file: path to output file
+    Write a model atmosphere in the MULTI2.4 format (e.g. 'atmos.sun').
+    MULTI format is short on info, so some guessing for parameters is done
+
+    Parameters
+    ----------
+    atmos : model_atmosphere
+
+    file : str
+        output file
     """
 
     with open(file, 'w') as f:
-        # write header with comments
-        f.write("* %s \n" %(atmos.header) )
-        # write formatted header
-        f.write("%s \n" %(atmos.id) )
-        f.write("* Depth scale: log(tau500nm) (T), log(column mass) (M), height [km] (H)\n %s \n" %(atmos.depth_scale_type) )
-        f.write("* log(g) \n %.3f \n" %(atmos.logg) )
-        f.write(f"* Teff = {atmos.teff}\n")
-        f.write("* Number of depth points \n %.0f \n" %(atmos.ndep) )
-        # write structure
+        f.write( f"* {atmos.header} \n" )
+
+        f.write( f"%s {atmos.id}\n" )
+        f.write( f"* Depth scale: log(tau500nm) (T), log(column mass) (M), height [km] (H)\n" )
+        f.write( f"{atmos.depth_scale_type} \n" )
+        f.write( f"* log(g) \n {atmos.logg:.3f} \n" )
+        f.write( f"* Teff = {atmos.teff:.1f}\n")
+        f.write( f"* Number of depth points \n {atmos.ndep:.0f} \n" )
+
         f.write("* depth scale, temperature, N_e, Vmac, Vturb \n")
-        for i in range(len(atmos.depth_scale)):
-            f.write("%15.5E %15.5f %15.5E %10.3f %10.3f\n" \
-                %( atmos.depth_scale[i], atmos.temp[i], atmos.ne[i], atmos.vmac[i], atmos.vturb[i] ) )
+
+        for i in range(atmos.ndep):
+            s = '\t'.join(f"{ar[i]}" for ar in [atmos.depth_scale, \
+                                                atmos.temp, atmos.ne, \
+                                                atmos.vmac, atmos.vturb])
+            f.write( f"{s}\n" )
 
 def write_atmos_m1d4TS(atmos, file):
     """
     Write model atmosphere in MULTI 1D input format, i.e. atmos.*
     input:
     (object of class model_atmosphere): atmos
-    (string) file: path to output file
+    (string) file: path to output file1
     """
 
     with open(file, 'w') as f:

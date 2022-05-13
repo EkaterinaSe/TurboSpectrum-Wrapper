@@ -14,7 +14,7 @@ def run_TS_parallel(set):
     Parameters
     ----------
     set : setup
-        Configuration of requested computaions
+        Configuration of requested computations
     """
 
     if set.ncpu > set.inputParams['count']:

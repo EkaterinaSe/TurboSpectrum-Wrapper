@@ -126,7 +126,7 @@ Try setting debug = 1 in config file. Check that expected format of model atmosp
             pickle.dump(MAgrid, f)
     return MAgrid
 
-def preInterpolationTests(data, interpol_coords, valueKey, dataLabel = 'default'):
+def preInterpolationTests(data, interpol_coords, valueKey, dataLabel = ''):
     """
     Run multiple tests to catch possible exceptions
     that could affect the performance of the underlying
@@ -183,22 +183,40 @@ in parameters {k} and {k1}")
     return True
 
 
-def NDinterpolateGrid(all_par, interpol_par, valueKey = 'structure', dataLabel='model_atm'):
+def NDinterpolateGrid(inputGrid, interpol_par, valueKey = 'structure'):
+    """
+    Creates the function that interpolates provided grid.
+    Coordinates of the grid are normalised and normalisation vector
+    is returned for future reference.
 
-    " Normalise the coordinates of the grid "
+    Parameters
+    ----------
+    inputGrid : dict
+        contains data for interpolation and its coordinates
+    interpol_par : np.array
+        depth scale in the model atmosphere used to solve for NLTE RT
+        (e.g. TAU500nm)
+    valueKey : str
+        key of the inputGrid that subset contains data for interpolation,
+        e.g. 'departure'
+
+    Returns
+    -------
+    interp_f : scipy.interpolate.LinearNDInterpolator
+        returns interpolated data
+    norm_coord : dict
+        contains normalisation applied to coordinates of interpolated data
+        should be used to normalised the labels provided in the call to interp_f
+    """
+
     points = []
     norm_coord = {}
     for k in interpol_par:
-            points.append(all_par[k] / max(all_par[k]) )
-            norm_coord.update( { k :  max(all_par[k])} )
+            points.append(inputGrid[k] / max(inputGrid[k]) )
+            norm_coord.update( { k :  max(inputGrid[k])} )
     points = np.array(points).T
 
-    "Create the function that interpolates model atmospheres structure"
-    values = np.array(all_par[valueKey])
+    values = np.array(inputGrid[valueKey])
     interp_f = LinearNDInterpolator(points, values)
 
     return interp_f, norm_coord
-
-
-if __name__ == '__main__':
-    exit(0)
