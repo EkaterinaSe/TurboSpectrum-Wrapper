@@ -328,7 +328,7 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         if not passed:
             exit()
         interpFunction, normalisedCoord = NDinterpolateGrid(modelAtmGrid, interpolCoords, \
-                                        valueKey='structure', dataLabel = 'model atmosphere grid' )
+                                        valueKey='structure')
         """
         Create hull object to test whether each of the requested points
         are within the original grid
@@ -443,7 +443,7 @@ but element is not Fe (for Fe A(Fe) == [Fe/H] is acceptable)")
                 interpFunction, normalisedCoord  = \
                     NDinterpolateGrid(subGrids['nlteData'][i], \
                         interpolCoords_el,\
-                        valueKey='depart', dataLabel=f"NLTE grid {el.ID}")
+                        valueKey='depart')
 
                 el.interpolator['abund'].append(ab)
                 el.interpolator['interpFunction'].append(interpFunction)
