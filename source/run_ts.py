@@ -11,27 +11,30 @@ import datetime
 # local
 from atmos_package import read_atmos_marcs, model_atmosphere
 
-def mkdir(s):
-    if os.path.isdir(s):
-        shutil.rmtree(s)
-    os.mkdir(s)
-
-def compute_babsma(set, atmos):
+def compute_babsma(ts_input, atmos, modelOpacFile, quite=True):
     """
-    input:
-    ts_in (dictionary): contains some of the input values for bsyn and babsma config files
-                        property of 'setup' object
-    atmos (object):     object of model_atmosphere class, init before passing to this function
-    """
+    Creates input for the babsma.f routine and executes it
+    babsma.f routine computes opacities for the give model atmosphere
+    which are then used by the bsyn.f routine
 
-    modelOpacFile = set.ts_root + F"/opac{set.ts_input['LAMBDA_MIN']}_{set.ts_input['LAMBDA_MAX']}_AA_{atmos.id}_subjob_{set.jobID}"
+    Parameters
+    ----------
+    ts_input : dict
+        contains TS input flags
+        must include the following flags:
+            'MARCS-FILE'('.true.' or '.false.'),
+            'ts_root' (path to TS executables bsyn.f and babsma.f)
+    atmos : model_atmosphere
+        for which model atmosphere to compute the opacities
+    modelOpacFile : str
+        where to store computed opacities
+    quite : boolean
+        controls details printout of the progress info
+    """
 
     babsma_conf = F""" \
-'LAMBDA_MIN:'    '{set.ts_input['LAMBDA_MIN']:.3f}'
-'LAMBDA_MAX:'    '{set.ts_input['LAMBDA_MAX']:.3f}'
-'LAMBDA_STEP:'   '{set.ts_input['LAMBDA_STEP']:.3f}'
 'MODELINPUT:'    '{atmos.path}'
-'MARCS-FILE:' '{set.ts_input['MARCS-FILE']}'
+'MARCS-FILE:' '{ts_input['MARCS-FILE']}'
 'MODELOPAC:' '{modelOpacFile}'
 'METALLICITY:'    '{atmos.feh:.3f}'
 'HELIUM     :'    '0.00'
@@ -39,158 +42,233 @@ def compute_babsma(set, atmos):
 'S-PROCESS  :'    '0.00'
     """
 
-    """ Run babsma """
     time0 = time.time()
-
-    os.chdir(set.ts_root)
+    cwd = os.getcwd()
+    os.chdir(ts_input['ts_root'])
     pr = subprocess.Popen(['./exec/babsma_lu'], stdin=subprocess.PIPE, \
         stdout=open(set.cwd + '/babsma.log', 'w'), stderr=subprocess.STDOUT )
     pr.stdin.write(bytes(babsma_conf, 'utf-8'))
     pr.communicate()
     pr.wait()
-    os.chdir(set.cwd)
-    if set.debug:
+    os.chdir(cwd)
+    if not quite:
         print(F"babsma: {time.time()-time0} seconds")
 
-    return modelOpacFile
+def compute_bsyn(ts_input, elementalAbundances, atmos, modelOpacFile, specResultFile, nlteInfoFile=None, quite = True):
+    """
+    Creates input for the bsyn.f routine and executes it
+    bsyn.f runs spectral synthesis based on the opacities
+    computed previsously by babsma.f
 
-def compute_bsyn(set, ind, atmos, modelOpacFile, specResultFile, nlteInfoFile=None):
+    Parameters
+    ----------
+    ts_input : dict
+        contains TS input flags
+        must include the following flags:
+            'NLTE' ('.true.' or '.false.'),
+            'LAMBDA_MIN', 'LAMBDA_MAX', 'LAMBDA_STEP',
+            'MARCS-FILE'('.true.' or '.false.'),
+            'NFILES' (how many linelists provided, integer),
+            'LINELIST' (separated with new line),
+            'ts_root' (path to TS executables bsyn.f and babsma.f)
+    elementalAbundances : list
+        contains atomic numbers and abundances of the elements requested for spectral synthesis,
+        e.g.
+        [ [26, 7.5], [8, 8.76] ]
+    atmos : model_atmosphere
+        for which model atmosphere to compute the opacities
+    modelOpacFile : str
+        path to the file storing opacities computed by babsma
+        returned by compute_babsma
+    specResultFile : str
+        where to save computed spectrum
+    nlteInfoFile : str
+        path to the configuration file that controls inclusion of NLTE to TS
+        returned by create_NlteInfoFile
+        if None, spectrum will be computed in LTE
+    quite : boolean
+        controls details printout of the progress info
     """
-    input:
-    atmos (object):     object of model_atmosphere class, init before passing to this function
-    """
+
     bsyn_config = F""" \
-'NLTE :'          '{set.ts_input['NLTE']}'
-'LAMBDA_MIN:'    '{set.ts_input['LAMBDA_MIN']:.3f}'
-'LAMBDA_MAX:'    '{set.ts_input['LAMBDA_MAX']:.3f}'
-'LAMBDA_STEP:'   '{set.ts_input['LAMBDA_STEP']:.3f}'
+'NLTE :'          '{ts_input['NLTE']}'
+'LAMBDA_MIN:'    '{ts_input['LAMBDA_MIN']:.3f}'
+'LAMBDA_MAX:'    '{ts_input['LAMBDA_MAX']:.3f}'
+'LAMBDA_STEP:'   '{ts_input['LAMBDA_STEP']:.3f}'
 'INTENSITY/FLUX:' 'Flux'
-'MARCS-FILE:' '{set.ts_input['MARCS-FILE']}'
+'MARCS-FILE:' '{ts_input['MARCS-FILE']}'
 'MODELOPAC:'        '{modelOpacFile}'
 'RESULTFILE :'    '{specResultFile}'
 'HELIUM     :'    '0.00'
-'NFILES   :' '{set.ts_input['NFILES']}'
-{set.ts_input['LINELIST']}
+'NFILES   :' '{ts_input['NFILES']}'
+{ts_input['LINELIST']}
 """
     if atmos.spherical:
-        bsyn_config = bsyn_config + f"""\
-'SPHERICAL:'  '.true.'
-  30
-  300.00
-  15
-  1.30
-"""
+        bsyn_config = bsyn_config + f" 'SPHERICAL:'  '.true.' "
     else:
-        bsyn_config = bsyn_config + f"""\
-'SPHERICAL:'  '.false.'
-  30
-  300.00
-  15
-  1.30
+        bsyn_config = bsyn_config + f" 'SPHERICAL:'  '.false.' "
+
+    bsyn_config = bsyn_config + f"""\
+ 30
+ 300.00
+ 15
+ 1.30
 """
-# TODO: spherical models???
 
     if not isinstance(nlteInfoFile,  type(None)):
         bsyn_config = bsyn_config + f"'NLTEINFOFILE:' '{nlteInfoFile}' \n"
 
     bsyn_config = bsyn_config +\
-            f"'INDIVIDUAL ABUNDANCES:'   '{len(set.inputParams['elements'])}' \n"
-    for el in set.inputParams['elements'].values():
-        bsyn_config = bsyn_config + f" {el.Z:.0f} {el.abund[ind]:5.3f} \n"
+            f"'INDIVIDUAL ABUNDANCES:'   '{len(elementalAbundances)}' \n"
+    for i in range(len(elementalAbundances)):
+        z, abund = elementalAbundances[i]
+        bsyn_config = bsyn_config + f" {z:.0f} {abund:5.3f} \n"
 
     """ Run bsyn """
     time0 = time.time()
-    os.chdir(set.ts_root)
+    cwd = os.getcwd()
+    os.chdir(ts_input['ts_root'])
     pr = subprocess.Popen(['./exec/bsyn_lu'], stdin=subprocess.PIPE, \
-        stdout=open(set.cwd + '/bsyn.log', 'w'), stderr=subprocess.STDOUT )
+        stdout=open(cwd + '/bsyn.log', 'w'), stderr=subprocess.STDOUT )
     pr.stdin.write(bytes(bsyn_config, 'utf-8'))
     pr.communicate()
     pr.wait()
-    os.chdir(set.cwd)
-    if set.debug:
+    os.chdir(cwd)
+    if not quite:
         print(F"bsyn: {time.time()-time0} seconds")
 
-def create_NlteInfoFile(filePath, set, i):
+def create_NlteInfoFile(elementalConfig, modelAtomsPath='', departureFilesPath='', filePath='./nlteinfofile.txt'):
+    """
+    Creates configuration file that controls inclusion of NLTE
+    for requsted elements into spectral synthesis
+
+    Parameters
+    ----------
+    elementalConfig : list
+        contains IDs, atomic number, abundances, NLTE flag,
+        and departure coefficient file + model atom ID if NLTE is True,
+        for the elements requested for spectral synthesis
+        e.g.
+        [
+            ['Fe', 26, 7.5, True, './depart_Fe.dat', 'atom.fe607c'],
+            ['O', 8, 8.76, False, '', '']
+        ]
+    modelAtomsPath : str
+        path to the model atoms, since TS requires all the model atoms
+        to be provided in the same directory
+        can be symbolic links
+    departureFilesPath : str
+        path to directory containing departure files in TS format
+        can be set to empty string, then paths to individual departure files
+        have to be absolute
+    filePath : str
+        where to write the file
+    """
     with open(filePath, 'w') as nlte_info_file:
         nlte_info_file.write('# created on \n')
         nlte_info_file.write('# path for model atom files ! this comment line has to be here !\n')
-        nlte_info_file.write(F"{set.modelAtomsPath} \n")
+        nlte_info_file.write(F"{modelAtomsPath} \n")
 
         nlte_info_file.write('# path for departure files ! this comment line has to be here !\n')
-        # input NLTE departure file will be written in the cwd, so set path to:
-        nlte_info_file.write(F" \n")
+        nlte_info_file.write(F"{departureFilesPath} \n")
         nlte_info_file.write('# atomic (non)LTE setup \n')
-        for el in set.inputParams['elements'].values():
-            if el.nlte:
-                if not isinstance(el.departFiles[i], type(None)):
-                    model_atom_id = el.modelAtom.split('/')[-1]
-                    nlte_info_file.write(F"{el.Z}  '{el.ID}'  'nlte' '{model_atom_id}'  '{el.departFiles[i]}' 'ascii' \n")
-                else:
-                    if set.debug:
-                        print(f"departure file doesn't exist for {el.ID} \
-at A({el.ID}) = {el.abund[i]} (i = {i}). No spectrum will be computed.")
-                    return False
+        for i in range(len(elementalConfig)):
+            id, z, abund, nlte, departFile, modelAtom = elementalConfig[i]
+            if nlte:
+                model_atom_id = modelAtom
+                nlte_info_file.write(F"{z}  '{id}'  'nlte' '{modelAtom}'  '{departFile}' 'ascii' \n")
             else:
-                nlte_info_file.write(F"{el.Z}  '{el.ID}'  'lte' ' '  ' ' 'ascii' \n")
-        return True
+                nlte_info_file.write(F"{z}  '{id}'  'lte' ''  '' '' \n")
 
-def parallel_worker(arg):
+def parallel_worker(set, ind):
     """
-    Run TS on a subset of input parameters (== ind)
+    Responsible for organising computations and talking to TS
+    Creates model atmosphers, opacity file (by running babsma.f),
+    NLTE control file if NLTE is requested fot at least one element,
+    computes the spectrum ( by calling bsyn.f),
+    and finally cleans up by removing temporary files
+
+
+    Parameters
+    ----------
+    set: setup
+        requested configuration
+    ind : list or np.array of int
+        positional indexes of stellar labels and individual abundances
+        compuations will be done consequently for each index
     """
-    set, ind = arg
     tempDir = f"{set.cwd}/job_{set.jobID}_{min(ind)}_{max(ind)}/"
-    mkdir(tempDir)
+    if os.path.isdir(tempDir):
+        shutil.rmtree(tempDir)
+    os.mkdir(tempDir)
     today = datetime.date.today().strftime("%b-%d-%Y")
 
+    elements = set.inputParams['elements'].values()
+
     for i in ind:
-        # create model atmosphere and run babsma on it
+        # TODO: move writing intrpolated model somewhere else, maybe even right after intrpolation
         atmos = model_atmosphere()
         if not isinstance(set.inputParams['modelAtmInterpol'][i], type(None)):
-            specResultFile = f"{tempDir}/spec_{set.jobID}_{i}"
-            if not os.path.isfile(specResultFile) or os.path.getsize(specResultFile) == 0:
+            atmos.depth_scale, atmos.temp, atmos.ne, atmos.vturb = \
+                set.inputParams['modelAtmInterpol'][i]
+            set.inputParams['modelAtmInterpol'][i] = None
+            atmos.temp, atmos.ne = 10**(atmos.temp), 10**(atmos.ne)
+            atmos.depth_scale_type = 'TAU500'
+            atmos.feh, atmos.logg = set.inputParams['feh'][i], set.inputParams['logg'][i]
+            atmos.spherical = False
+            atmos.id = f"interpol_{i:05d}_{set.jobID}"
+            atmos.path = f"{tempDir}/atmos.{atmos.id}"
 
-                atmos.depth_scale, atmos.temp, atmos.ne, atmos.vturb = \
-                    set.inputParams['modelAtmInterpol'][i]
-                set.inputParams['modelAtmInterpol'][i] = None
-                atmos.temp, atmos.ne = 10**(atmos.temp), 10**(atmos.ne)
-                atmos.depth_scale_type = 'TAU500'
-                atmos.feh, atmos.logg = set.inputParams['feh'][i], set.inputParams['logg'][i]
-                atmos.spherical = False
-                atmos.id = f"interpol_{i:05d}_{set.jobID}"
-                atmos.path = f"{tempDir}/atmos.{atmos.id}"
-                atmos.write(atmos.path, format = 'ts')
-    
-                """ Compute model atmosphere opacity """
-                modelOpacFile = compute_babsma(set, atmos)
-    
-                """ Compute the spectrum """
-                if set.nlte:
-                    specResultFile = specResultFile + '_NLTE'
-                else:
-                    specResultFile = specResultFile + '_LTE'
-    
-                header = f"computed with TS NLTE v.20 by E.Magg (emagg at mpia dot de) \n\
+            atmos.write(atmos.path, format = 'ts')
+
+            """ Compute model atmosphere opacity with babsma.f"""
+            modelOpacFile = F"{set.ts_input['ts_root']}/opac_{atmos.id}_{set.jobID}"
+            compute_babsma(set.ts_input, atmos, modelOpacFile, set.debug)
+
+            """ Compute the spectrum """
+            specResultFile = specResultFile + f"{['NLTE' if set.nlte else 'LTE'][0]}"
+
+            header = f"computed with TS NLTE v.20 \n\
+by E.Magg (emagg at mpia dot de) \n\
 Date: {today} \n\
 Input parameters: \n\
 "
-                for k in set.freeInputParams:
-                    header += f"{k} = {set.inputParams[k][i]} \n"
-                for el in set.inputParams['elements'].values():
-                    header += f"A({el.ID}) = {el.abund[i]} {['NLTE' if el.nlte else 'LTE']} \n"
-    
-                #for el in set.inputParams['elements'].values():
-                #    specResultFile = specResultFile + f"_{el.ID}{el.abund[i]}"
-    
-                if set.nlte:
+            header += '\n'.join( f"{k} = {set.inputParams[k][i]}" for  k in set.freeInputParams)
+            header += '\n'.join(f"A({el.ID}) = {el.abund[i]} {['NLTE' if el.nlte else 'LTE']}" for el in elements)
+
+            "Create NLTE info file"
+            if set.nlte:
+                for el in elements:
                     nlteInfoFile   = f"{tempDir}/NLTEinfoFile_{set.jobID}.txt"
-                    departFilesExist = create_NlteInfoFile(nlteInfoFile, set, i)
-                    if departFilesExist:
-                        compute_bsyn(set, i, atmos, modelOpacFile, specResultFile, nlteInfoFile)
-                else:
-                    compute_bsyn(set, i, atmos, modelOpacFile, specResultFile, None)
-    
-                """ Add header, comments and save to the common output directory """
+                    elementalConfig = []
+                    for el in set.inputParams['elements'].values():
+                        if el.nlte:
+                            if not isinstance(el.departFiles[i], type(None)):
+                                cnfg = [
+                                        el.ID, el.Z, el.abund[i],
+                                        el.nlte, el.departFiles[i],
+                                        el.modelAtom.split('/')[-1]
+                                        ]
+                            else:
+                                cnfg = [ el.ID, el.Z, el.abund[i], False, '', '']
+                                set.inputParams['comments'][i] += f"\
+failed to create departure file for {el.ID} at A({el.ID}) = {el.abund[i]}. \
+Treated in LTE instead."
+                        else:
+                            cnfg = [ el.ID, el.Z, el.abund[i], False, '', '']
+                    elementalConfig.append( cnfg )
+
+            create_NlteInfoFile(elementalConfig, set.modelAtomsPath, '', nlteInfoFile)
+
+            "Run bsyn.f for spectral synthesis"
+            elementalConfig = [ [el.Z, el.abund[i]] for el in set.inputParams['elements'].values() ]
+            compute_bsyn(
+                        set.ts_input, elementalConfig, \
+                        atmos, modelOpacFile, specResultFile, \
+                        nlteInfoFile, set.debug
+            )
+
+            """ Add header, comments and save the spectrum to the common output directory """
             if os.path.isfile(specResultFile) and os.path.getsize(specResultFile) > 0:
                 with open(f"{set.spectraDir}/{specResultFile.split('/')[-1]}", 'w') as moveSpec:
                     for l in header.split('\n'):
@@ -201,11 +279,11 @@ Input parameters: \n\
                     for l in open(specResultFile, 'r').readlines():
                         moveSpec.write(l)
                 os.remove(specResultFile)
+
             """ Clean up """
-#            os.remove(atmos.path)
+            os.remove(atmos.path)
             os.remove(modelOpacFile)
             os.remove(modelOpacFile+'.mod')
-    return set
 
 if __name__ == '__main__':
     if len(argv) > 1:
@@ -213,5 +291,6 @@ if __name__ == '__main__':
     else:
         print("Usage: ./run_ts.py ./configFile.txt")
         exit()
-    #set = setup(file = conf_file)
+    set = setup(file = conf_file)
+    parallel_worker(set, np.arange(len(set)))
     exit(0)

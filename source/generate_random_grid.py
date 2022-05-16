@@ -25,8 +25,9 @@ Will use {set.ncpu} CPUs instead")
     ind = np.arange(set.inputParams['count'])
     args = [ [set, ind[i::set.ncpu]] for i in range(set.ncpu)]
 
+    unpackFunc = lambda arg : parallel_worker(arg[0], arg[1])
     with Pool(processes=set.ncpu) as pool:
-        pool.map(parallel_worker, args )
+        pool.map(unpackFunc, args )
 
 
 
