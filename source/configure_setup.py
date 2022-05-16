@@ -495,9 +495,7 @@ No computations will be done for those")
                 If only one point is present (e.g. A(H) is always 12),
                 take departure coefficient at that abundance
                 """
-                print(f"found {len(y)} data-sets at {len(x)} abundances...")
                 if len(x) >= 2:
-                    print('now linearly interpolating over abundance:', x)
                     if not el.isFe or el.isH:
                         abScale = el.abund[i] - self.inputParams['feh'][i]
                     else:

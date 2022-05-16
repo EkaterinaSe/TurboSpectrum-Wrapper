@@ -103,7 +103,7 @@ def fitToModelGrid(obsSpec, modelGrid, fitForLabels = None):
 def callNN(wavelength, obsSpec, NN, labels):
     spec = spectrum(
                     wavelength,
-                    restore(wavelength, NN, labels[:-2]), res = np.inf
+                    restore(wavelength, NN, labels[:-1]), res = np.inf
                     )
     spec.convolve_resolution(obsSpec.R)
     spec.convolve_macroturbulence(labels[-1])
@@ -122,17 +122,20 @@ def fitToNeuralNetwork(obsSpec, NN, fitForLabels = None):
     initLabels = np.zeros(len(fitForLabels)+1)
 
 
-    fitFunc = lambda wavelength, labels : callNN(
+    fitFunc = lambda wavelength, *labels : callNN(
                                                 wavelength, obsSpec,
                                                 NN, labels
                                                 )
-    popt = curve_fit(
+    popt,_ = curve_fit(
                     fitFunc, obsSpec.lam, \
                     obsSpec.flux, p0=initLabels
                     )
 
-    labels[:-2] = (popt[:-2] + 0.5)*( NNet['x_max'] - NNet['x_min'] ) + NNet['x_min']
-    return labels
+    popt[:-1] = (popt[:-1] + 0.5)*( NN['x_max'] - NN['x_min'] ) + NN['x_min']
+    for i in range(len(fitForLabels)):
+        print(f" {fitForLabels[i]} = {popt[i]:.2f} ")
+    print(f"Vmac = {popt[-1]:.3f}")
+    return popt
 
 if __name__ == '__main__':
     if len(argv) < 4:
@@ -155,6 +158,7 @@ if __name__ == '__main__':
                             w, f,\
                             res = np.inf
                             )
+            obsSpec.convolve_resolution(24)
             labelsFit = fitToModelGrid(obsSpec, modelGrid, fitForLabels )
     elif argv[3].lower().strip() == 'payne':
         "Fit using Payne neural network"
@@ -169,6 +173,7 @@ if __name__ == '__main__':
                             w, f,\
                             res = np.inf
                             )
+            obsSpec.convolve_resolution(24)
             labelsFit = fitToNeuralNetwork(obsSpec, NN)
 
     else:
