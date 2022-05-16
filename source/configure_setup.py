@@ -499,11 +499,14 @@ No computations will be done for those")
                 if len(x) >= 2:
                     print('now linearly interpolating over abundance:', x)
                     if not el.isFe or el.isH:
-                        depart= interp1d(x, y, fill_value = 'extrapolate',  axis=0)(el.abund[i] - self.inputParams['feh'][i] )
+                        abScale = el.abund[i] - self.inputParams['feh'][i]
+                    else:
+                        abScale = el.abund[i]
+                    if abScale > min(x) and abScale < max(x):
+                        depart = interp1d(x, y, axis=0)(abScale)
                         depart = restoreDepartScaling(depart, el)
                     else:
-                        depart = interp1d(x, y, fill_value = 'extrapolate', axis=0)(el.abund[i])
-                        depart = restoreDepartScaling(depart, el)
+                        depart = np.nan
                     abund = el.abund[i]
                     #print('NaNs?', np.isnan(depart).any())
                 elif len(x) == 1 and el.isH:
