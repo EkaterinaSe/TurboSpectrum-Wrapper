@@ -32,21 +32,6 @@ def in_hull(p, hull):
     """
     return hull.find_simplex(p) >= 0
 
-def mkdir(s):
-    """
-    Create a new directory. If already exists, overwrite by deleting the
-    existing directory and all its content. Use with caution
-
-    Parameters
-    ----------
-    s : str
-        path to the new directory
-    """
-    if os.path.isdir(s):
-        shutil.rmtree(s)
-    os.mkdir(s)
-
-
 def restoreDepartScaling(depart, el):
     """
     Departure coefficients are normalised and brought to the log scale
@@ -212,7 +197,10 @@ but it is not a free parameter in the input file {self.inputParams_file}.")
             "TS needs to access model atoms from the same path for all elements"
             if 'modelAtomsPath' not in self.__dict__.keys():
                 self.modelAtomsPath = f"{self.cwd}/modelAtoms_links/"
-                mkdir(self.modelAtomsPath)
+                if os.path.isdir(self.modelAtomsPath):
+                    shutil.rmtree(self.modelAtomsPath)
+                os.mkdir(self.modelAtomsPath)
+
                 "Link provided model atoms to this directory"
                 for el in self.inputParams['elements'].values():
                     if el.nlte:
@@ -575,6 +563,7 @@ for {el.ID} were taken at point with the following parameters:\n"
         self.ts_input['LAMBDA_MIN'] = self.lam_start
         self.ts_input['LAMBDA_MAX'] = self.lam_end
         self.ts_input['LAMBDA_STEP'] = self.wave_step
+        self.ts_input['ts_root'] = self.ts_root
 
 
         """ Linelists """
