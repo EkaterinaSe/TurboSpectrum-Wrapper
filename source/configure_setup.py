@@ -507,12 +507,10 @@ No computations will be done for those")
                         depart = restoreDepartScaling(depart, el)
                     else:
                         depart = np.nan
-                    abund = el.abund[i]
                     #print('NaNs?', np.isnan(depart).any())
                 elif len(x) == 1 and el.isH:
                     print(f'only one point at abundandance={x} found, will accept depart coeff.')
                     depart = y[0]
-                    abund = el.abund[i]
                     depart = restoreDepartScaling(depart, el)
                     #print('NaNs?', np.isnan(depart).any())
                 else:
@@ -545,8 +543,7 @@ for {el.ID} were taken at point with the following parameters:\n"
                             for k in el.interpolator['normCoord'][0]:
                                 self.inputParams['comments'][i] += f"{k} = {el.nlteData[k][pos]}\
  (off by {point[k] - el.nlteData[k][pos] }) \n"
-                    abund = el.abund[i]
-                write_departures_forTS(departFile, tau, depart, abund)
+                write_departures_forTS(departFile, tau, depart, el.abund[i])
                 el.departFiles[i] = departFile
                 self.inputParams['comments'][i] += el.comment
 
