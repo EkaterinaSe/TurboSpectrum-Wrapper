@@ -1,6 +1,6 @@
 # TurboSpectrum-Wrapper
 Author: Ekaterina Magg
-MPIA, Heidelber, Germany
+MPIA, Heidelberg, Germany
 
 welcome!
 to use the wrapper please make sure you have TurboSpectrum installed
