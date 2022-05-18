@@ -2,6 +2,8 @@
 Author: Ekaterina Magg
 MPIA, Heidelberg, Germany
 
+in collaboration with M. Bergemann, B. Plez, J. Gerber
+
 welcome!
 to use the wrapper please make sure you have TurboSpectrum installed
 
