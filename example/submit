@@ -1,0 +1,11 @@
+#!/bin/bash -l
+# --- Log file and error file names ---
+#SBATCH -e ./job.err.%j
+
+# Initial working directory:
+#SBATCH -D ./
+
+# Job Name:
+#SBATCH -J jobID
+
+python3.7  -u ./generate_random_grid.py  ./config.txt jobID_Label

@@ -1,0 +1,50 @@
+# config file used to setup TurboSpectrum (TS) run
+
+# print detailed debug info?
+debug = 1
+
+# path to TS installation
+# please provide absolute path
+ts_root = '/home/Turbospectrum2020'
+
+# path to model atmospheres (in MARCS .mod format only)
+atmos_path = '/home/MARCS/'
+# 'm1d' or 'marcs'
+atmos_format = 'marcs'
+
+# path to the linelist(s)
+linelist = ['/home/plato-solar/line_data/nlte_ges_linelist.txt', './DATA/Hlinedata', '/home/plato-solar/line_data/molecular_linelists_TSformat/*GESv5.bsyn']
+
+# number of CPUs
+ncpu=60
+
+# requested input parameters
+inputParams_file = 'input_param_NLTE_MARCS.txt'
+
+# directory for NLTE data
+# can be omitted if absolute paths are provided below
+nlte_grids_path = './nlteGrids/'
+# for LTE leave empty:
+#nlte_config = [ ]
+# for NLTE:
+# each recordsmust contain the path to binary grid, auxilarly file and model atom, nlte_grids_path might be omitted
+nlte_config = [ H : [ 'H/NLTEgrid_H_MARCS_May-10-2021.bin',  'H/auxData_H_MARCS_May-10-2021.txt, 'H/atom.h20'] ]
+nlte_config += [ Fe : [ 'Fe/NLTEgrid4TS_Fe_MARCS_May-07-2021.bin','Fe/auxData_Fe_MARCS_May-07-2021.dat', 'Fe/atom.fe607a'] ]
+nlte_config += [ Ca : [ 'Ca/NLTEgrid4TS_Ca_MARCS_Jun-02-2021.bin','Ca/auxData_Ca_MARCS_Jun-02-2021.dat', 'Ca/atom.ca105b'] ]
+nlte_config += [ Ba : [ 'Ba/NLTEgrid_Ba_MARCS_May-10-2021.bin', 'Ba/auxData_Ba_MARCS_May-10-2021.txt', 'Ba/atom.ba111' ] ]
+nlte_config += [ Co : [ 'Co/NLTEgrid4TS_CO_MARCS_Feb-21-2022.bin', 'Co/auxData_CO_MARCS_Feb-21-2022.dat', 'Co/atom.co247' ] ]
+nlte_config += [ Mg : [ 'Mg/NLTEgrid4TS_Mg_MARCS_Jun-02-2021.bin', 'Mg/auxData_Mg_MARCS_Jun-02-2021.dat', 'Mg/atom.mg86b' ] ]
+#nlte_config += [ Mn : [ 'Mn/NLTEgrid4TS_MN_MARCS_Feb-22-2022.bin', 'Mn/auxData_MN_MARCS_Feb-22-2022.dat', 'Mn/atom.mn281kbc' ] ]
+#nlte_config += [ Na : [ 'Na/NLTEgrid4TS_NA_MARCS_Feb-20-2022.bin', 'Na/auxData_Na_MARCS_Feb-20-2022.dat', 'Na/atom.na102' ] ]
+#nlte_config += [ Ni : [ 'Ni/NLTEgrid4TS_Ni_MARCS_Jan-31-2022.bin', 'Ni/auxData_Ni_MARCS_Jan-21-2022.txt', 'Ni/atom.ni538qm' ] ]
+#nlte_config += [ O : ['O/NLTEgrid4TS_O_MARCS_May-21-2021.bin', 'O/auxData_O_MARCS_May-21-2021.txt', 'O/atom.o41f' ] ]
+#nlte_config += [ Sr : ['Sr/NLTEgrid4TS_Sr_MARCS_Mar-03-2022.bin', 'Sr/auxData_Sr_MARCS_Mar-10-2022.dat', 'Sr/atom.sr191' ] ]
+#nlte_config += [ Ti : ['Ti/NLTEgrid4TS_TI_MARCS_Feb-21-2022.bin', 'Ti/auxData_TI_MARCS_Feb-21-2022.dat', 'Ti/atom.ti503' ] ]
+
+
+# starting wavelenght, AA
+lam_start = 3900
+# last wavelenght, AA
+lam_end = 6800
+# sampling equavivalent to the resolution per wavelenght (R capital)
+resolution = 100000
