@@ -27,7 +27,7 @@ Will use {set.ncpu} CPUs instead")
 
     unpackFunc = lambda arg : parallel_worker(arg[0], arg[1])
     with Pool(processes=set.ncpu) as pool:
-        pool.map(unpackFunc, args )
+        pool.map(parallel_worker, args )
 
 
 

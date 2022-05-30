@@ -34,6 +34,9 @@ def compute_babsma(ts_input, atmos, modelOpacFile, quite=True):
 
     babsma_conf = F""" \
 'MODELINPUT:'    '{atmos.path}'
+'LAMBDA_MIN:'    '{ts_input['LAMBDA_MIN']:.3f}'
+'LAMBDA_MAX:'    '{ts_input['LAMBDA_MAX']:.3f}'
+'LAMBDA_STEP:'   '{ts_input['LAMBDA_STEP']:.3f}'
 'MARCS-FILE:' '{ts_input['MARCS-FILE']}'
 'MODELOPAC:' '{modelOpacFile}'
 'METALLICITY:'    '{atmos.feh:.3f}'
@@ -46,7 +49,7 @@ def compute_babsma(ts_input, atmos, modelOpacFile, quite=True):
     cwd = os.getcwd()
     os.chdir(ts_input['ts_root'])
     pr = subprocess.Popen(['./exec/babsma_lu'], stdin=subprocess.PIPE, \
-        stdout=open(set.cwd + '/babsma.log', 'w'), stderr=subprocess.STDOUT )
+        stdout=open(cwd + '/babsma.log', 'w'), stderr=subprocess.STDOUT )
     pr.stdin.write(bytes(babsma_conf, 'utf-8'))
     pr.communicate()
     pr.wait()
@@ -104,15 +107,15 @@ def compute_bsyn(ts_input, elementalAbundances, atmos, modelOpacFile, specResult
 {ts_input['LINELIST']}
 """
     if atmos.spherical:
-        bsyn_config = bsyn_config + f" 'SPHERICAL:'  '.true.' "
+        bsyn_config = bsyn_config + f" 'SPHERICAL:'  '.true.' \n"
     else:
-        bsyn_config = bsyn_config + f" 'SPHERICAL:'  '.false.' "
+        bsyn_config = bsyn_config + f" 'SPHERICAL:'  '.false.' \n"
 
     bsyn_config = bsyn_config + f"""\
- 30
- 300.00
- 15
- 1.30
+30
+300.00
+15
+1.30
 """
 
     if not isinstance(nlteInfoFile,  type(None)):
@@ -173,14 +176,14 @@ def create_NlteInfoFile(elementalConfig, modelAtomsPath='', departureFilesPath='
         nlte_info_file.write(F"{departureFilesPath} \n")
         nlte_info_file.write('# atomic (non)LTE setup \n')
         for i in range(len(elementalConfig)):
-            id, z, abund, nlte, departFile, modelAtom = elementalConfig[i]
+            ID, z, abund, nlte, departFile, modelAtom = elementalConfig[i]
             if nlte:
                 model_atom_id = modelAtom
-                nlte_info_file.write(F"{z}  '{id}'  'nlte' '{modelAtom}'  '{departFile}' 'ascii' \n")
+                nlte_info_file.write(F"{z}  '{ID}'  'nlte' '{modelAtom}'  '{departFile}' 'ascii' \n")
             else:
-                nlte_info_file.write(F"{z}  '{id}'  'lte' ''  '' '' \n")
+                nlte_info_file.write(F"{z}  '{ID}'  'lte' ''  '' 'ascii' \n")
 
-def parallel_worker(set, ind):
+def parallel_worker(arg):
     """
     Responsible for organising computations and talking to TS
     Creates model atmosphers, opacity file (by running babsma.f),
@@ -197,6 +200,7 @@ def parallel_worker(set, ind):
         positional indexes of stellar labels and individual abundances
         compuations will be done consequently for each index
     """
+    set, ind = arg
     tempDir = f"{set.cwd}/job_{set.jobID}_{min(ind)}_{max(ind)}/"
     if os.path.isdir(tempDir):
         shutil.rmtree(tempDir)
@@ -223,10 +227,10 @@ def parallel_worker(set, ind):
 
             """ Compute model atmosphere opacity with babsma.f"""
             modelOpacFile = F"{set.ts_input['ts_root']}/opac_{atmos.id}_{set.jobID}"
-            compute_babsma(set.ts_input, atmos, modelOpacFile, set.debug)
+            compute_babsma(set.ts_input, atmos, modelOpacFile, True)
 
             """ Compute the spectrum """
-            specResultFile = specResultFile + f"{['NLTE' if set.nlte else 'LTE'][0]}"
+            specResultFile = f"{tempDir}/spec_{i:.0f}_{['NLTE' if set.nlte else 'LTE'][0]}"
 
             header = f"computed with TS NLTE v.20 \n\
 by E.Magg (emagg at mpia dot de) \n\
@@ -238,27 +242,28 @@ Input parameters: \n\
 
             "Create NLTE info file"
             if set.nlte:
+                elementalConfig = []
+                nlteInfoFile   = f"{tempDir}/NLTEinfoFile_{set.jobID}.txt"
                 for el in elements:
-                    nlteInfoFile   = f"{tempDir}/NLTEinfoFile_{set.jobID}.txt"
-                    elementalConfig = []
-                    for el in set.inputParams['elements'].values():
-                        if el.nlte:
-                            if not isinstance(el.departFiles[i], type(None)):
-                                cnfg = [
-                                        el.ID, el.Z, el.abund[i],
-                                        el.nlte, el.departFiles[i],
-                                        el.modelAtom.split('/')[-1]
-                                        ]
-                            else:
-                                cnfg = [ el.ID, el.Z, el.abund[i], False, '', '']
-                                set.inputParams['comments'][i] += f"\
-failed to create departure file for {el.ID} at A({el.ID}) = {el.abund[i]}. \
-Treated in LTE instead."
+                    if el.nlte:
+                        if not isinstance(el.departFiles[i], type(None)):
+                            cnfg = [
+                                    el.ID, el.Z, el.abund[i],
+                                    el.nlte, el.departFiles[i],
+                                    el.modelAtom.split('/')[-1]
+                                    ]
                         else:
                             cnfg = [ el.ID, el.Z, el.abund[i], False, '', '']
+                            set.inputParams['comments'][i] += f"\
+failed to create departure file for {el.ID} at A({el.ID}) = {el.abund[i]}. \
+Treated in LTE instead."
+                    else:
+                        cnfg = [ el.ID, el.Z, el.abund[i], False, '', '']
                     elementalConfig.append( cnfg )
 
-            create_NlteInfoFile(elementalConfig, set.modelAtomsPath, '', nlteInfoFile)
+                create_NlteInfoFile(elementalConfig, set.modelAtomsPath, '', nlteInfoFile)
+            else: 
+                nlteInfoFile =  None
 
             "Run bsyn.f for spectral synthesis"
             elementalConfig = [ [el.Z, el.abund[i]] for el in set.inputParams['elements'].values() ]

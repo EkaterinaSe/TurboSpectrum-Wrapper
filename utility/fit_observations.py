@@ -9,7 +9,7 @@ from multiprocessing import Pool
 from scipy.optimize import curve_fit, fmin_bfgs
 import sys
 sys.path.append('/home/semenova/codes/PayneNN')
-from source.validationChecks import restore, readNN
+from source.validationChecks import restore, readNN, restoreFromNormLabels
 
 def readModelSpectralGrid(ListOfModelSpectra):
     "Assuming the same wavelength because there is too much going on with cutting the spectra and so on"
@@ -101,12 +101,23 @@ def fitToModelGrid(obsSpec, modelGrid, fitForLabels = None):
 
 
 def callNN(wavelength, obsSpec, NN, labels):
+    #fileOut = "./iterFlux.dat"
+    #if os.path.isfile(fileOut):
+    #    data = np.loadtxt(fileOut)
+    #else:
+    #    data = None
+    
     spec = spectrum(
                     wavelength,
-                    restore(wavelength, NN, labels[:-1]), res = np.inf
+                    restoreFromNormLabels(wavelength, NN, labels[:-2]), res = np.inf
                     )
     spec.convolve_resolution(obsSpec.R)
-    spec.convolve_macroturbulence(labels[-1])
+    spec.convolve_macroturbulence(labels[-2]*100)
+    spec.convolve_rotation(labels[-1]*100)
+    #if not isinstance(data, type(None)):
+    #    data = np.vstack( ( data, spec.flux) )
+    #else: data = spec.flux.copy()
+    #np.savetxt(fileOut, data)
     return spec.flux
 
 def fitToNeuralNetwork(obsSpec, NN, fitForLabels = None):
@@ -119,7 +130,7 @@ def fitToNeuralNetwork(obsSpec, NN, fitForLabels = None):
     Extra dimension for macro-turbulence
     """
 
-    initLabels = np.zeros(len(fitForLabels)+1)
+    initLabels = np.zeros(len(fitForLabels)+2)
 
 
     fitFunc = lambda wavelength, *labels : callNN(
@@ -128,13 +139,23 @@ def fitToNeuralNetwork(obsSpec, NN, fitForLabels = None):
                                                 )
     popt,_ = curve_fit(
                     fitFunc, obsSpec.lam, \
-                    obsSpec.flux, p0=initLabels
+                    obsSpec.flux, p0=initLabels,\
+                    #bounds = (-0.5, 0.5)
                     )
 
-    popt[:-1] = (popt[:-1] + 0.5)*( NN['x_max'] - NN['x_min'] ) + NN['x_min']
+    popt[:-2] = (popt[:-2] + 0.5)*( NN['x_max'] - NN['x_min'] ) + NN['x_min']
+    popt[-2:] =  popt[-2:]*100
     for i in range(len(fitForLabels)):
         print(f" {fitForLabels[i]} = {popt[i]:.2f} ")
-    print(f"Vmac = {popt[-1]:.3f}")
+    print(f"Vmac = {popt[-2]:.3f}")
+    print(f"Vrot = {popt[-1]:.3f}")
+    spec = spectrum(
+                    obsSpec.lam,
+                    restore(obsSpec.lam, NN, popt[:-2]), res = np.inf
+                    )
+    spec.convolve_resolution(obsSpec.R)
+    spec.convolve_macroturbulence(popt[-1])
+    np.savetxt(f"./{obsSpec.ID}_modelFlux.dat", spec.flux)
     return popt
 
 if __name__ == '__main__':
@@ -166,15 +187,20 @@ if __name__ == '__main__':
         obsPath = argv[2]
 
         NN = readNN(nnPath)
-
+        fout = open(f"./fittingResults.dat", 'w')
         for obsSpecPath in glob.glob(obsPath):
+            print(obsSpecPath)
             w, f = read_observations(obsSpecPath, format = 'ascii')
+            mask = np.logical_and(f> 0, f<1.5)
+            w, f = w[mask], f[mask]
             obsSpec = spectrum(
                             w, f,\
-                            res = np.inf
+                            res = 15e3
                             )
-            obsSpec.convolve_resolution(24)
+            obsSpec.ID = obsSpecPath.split('/')[-1].replace('.dat', '')
             labelsFit = fitToNeuralNetwork(obsSpec, NN)
+            fout.write( f"{obsSpec.ID} " + '\t'.join(f"{l:.3f}" for l in labelsFit) + '\n')
+        fout.close()
 
     else:
         print(f"Mode {argv[4]} not understood. 'Grid' or 'Payne' are supported.")

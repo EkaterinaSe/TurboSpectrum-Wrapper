@@ -10,6 +10,8 @@ def conv_res(wave, flux, fwhm):
 			#faltbon needs three columns of data, but only cares about the first two
 			f.write(F"{wave[j]:f} {flux[j]:f} -9999 \n")
 	os.system("{ echo original.txt; echo convolve.txt; echo %f; echo 2; } | ./faltbon" % fwhm)
+	if not os.path.isfile('./convolve.txt'):
+		return np.nan, np.nan
 	wave_conv, flux_conv, _ = np.loadtxt("convolve.txt", unpack='True') #read in our new convolved spectrum
 	os.remove('./convolve.txt')
 	return wave_conv, flux_conv

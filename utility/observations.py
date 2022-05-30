@@ -124,11 +124,10 @@ class spectrum(object):
     def convolve_resolution(self, R_new, quite=True):
         if not quite:
             print(F"Convolving spectrum from R={self.R} to R={R_new}...")
-
         d_lam = (np.mean(self.lam)/R_new)
         sigma = d_lam / (2.0 * np.sqrt(2. * np.log(2.)))
         kernel = convolution.Gaussian1DKernel(sigma/self.lam_step)
-        self.flux =  convolution.convolve(self.flux, kernel)
+        self.flux =  convolution.convolve(self.flux, kernel, fill_value=1)
         self.R = R_new
 
     def convolve_rotation(self, Vrot,  quite=True):
@@ -158,20 +157,12 @@ class spectrum(object):
                 fwhm = self.Vrot * np.mean(self.lam) / const.c.to('km/s').value / self.lam_step
 
                 # kernel should always have odd size  along all axis
-                w, f = self.lam, self.flux
-                odd = False
-                if len(w) % 2 == 0:
-                    w = np.hstack((w, w[-1]))
-                    f = np.hstack((f, f[-1]))
-                    odd = True
+                x_size=int(30*fwhm)
+                if x_size % 2 == 0:
+                    x_size += 1
 
-                rot_kernel = convolution.Model1DKernel(rotation(fwhm), x_size=len(w) )
-                f = convolution.convolve(f, rot_kernel, fill_value=1)
-
-                if odd:
-                    self.flux = f[:-1]
-                else:
-                    self.flux = f
+                rot_kernel = convolution.Model1DKernel(rotation(fwhm), x_size=x_size )
+                self.flux = convolution.convolve(self.flux, rot_kernel, fill_value=1)
         else:
             print(F"Unexpected Vrot={self.Vrot} [km/s]. Stopped.")
             exit(1)
@@ -204,21 +195,12 @@ class spectrum(object):
                 fwhm = self.Vmac * np.mean(self.lam) / const.c.to('km/s').value / self.lam_step
 
                 # kernel should always have odd size along all axis
-                w, f = self.lam, self.flux
-                odd = False
-                if len(w) % 2 == 0:
-                    w = np.hstack((w, w[-1]))
-                    f = np.hstack((f, f[-1]))
-                    odd = True
-                # # TODO: size of the kernel needs to be estimated from the FWHM
-                macro_kernel = convolution.Model1DKernel( rad_tang(fwhm), x_size=len(w) )
+                x_size=int(30*fwhm)
+                if x_size % 2 == 0:
+                    x_size += 1
+                macro_kernel = convolution.Model1DKernel( rad_tang(fwhm), x_size=x_size )
 
-                f = convolution.convolve(f, macro_kernel, fill_value=1)
-
-                if odd:
-                    self.flux = f[:-1]
-                else:
-                    self.flux = f
+                self.flux = convolution.convolve(self.flux, macro_kernel, fill_value=1)
         else:
             print(F"Unexpected Vmac={self.Vmac} [km/s]. Stopped.")
             exit(1)
