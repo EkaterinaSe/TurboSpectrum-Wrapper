@@ -8,6 +8,7 @@ welcome!
 to use the wrapper please make sure you have TurboSpectrum installed
 
 you can obtain the latest (NLTE!) version of TurboSpectrum here:
+https://github.com/bertrandplez/Turbospectrum2020.git
 
 ### before you get started:
 please make sure to read the conditions and applied licenses below:
