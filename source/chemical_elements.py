@@ -16,7 +16,7 @@ def atomicZ(el):
         element name e.g. 'Mg'
     """
     if os.path.isfile('./atomic_numbers.dat'):
-        el_z = np.loadtxt('./atomic_numbers.dat', usecols=(0))
+        el_z = np.loadtxt('./atomic_numbers.dat', usecols=(0), dtype=int)
         el_id = np.loadtxt('./atomic_numbers.dat', usecols=(1), dtype=str)
     else:
         print("Can not find './atomic_numbers.dat' file. Stopped.")
