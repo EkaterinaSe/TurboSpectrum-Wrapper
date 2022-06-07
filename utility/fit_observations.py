@@ -8,8 +8,7 @@ from observations import readSpectrumTSwrapper, spectrum, read_observations
 from multiprocessing import Pool
 from scipy.optimize import curve_fit, fmin_bfgs
 import sys
-sys.path.append('/home/semenova/codes/PayneNN')
-from source.validationChecks import restore, readNN, restoreFromNormLabels
+from validationChecks import restore, readNN, restoreFromNormLabels
 
 def callNN(wavelength, obsSpec, NN, labels):
     #fileOut = "./iterFlux.dat"
