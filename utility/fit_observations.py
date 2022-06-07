@@ -8,7 +8,38 @@ from observations import readSpectrumTSwrapper, spectrum, read_observations
 from multiprocessing import Pool
 from scipy.optimize import curve_fit, fmin_bfgs
 import sys
-from validationChecks import restore, readNN, restoreFromNormLabels
+
+def restoreFromNormLabels(wavelen, NNet, labelsNorm):
+    """ Labels  are already normalised before the call according to the NN used"""
+    labels = np.array(labelsNorm)
+
+    """ layers ??? """
+    l1 = np.dot(NNet['w_array_0'], labels) + NNet['b_array_0']
+
+    l1[l1<0.0]=0.0
+
+    l2 = np.dot( NNet['w_array_1'], l1 ) + NNet['b_array_1']
+    l2 = 1.0 / (1.0 + np.exp(-l2) )
+
+    predictFlux = np.dot( NNet['w_array_2'], l2 ) + NNet['b_array_2']
+    """ Interpolate flux to the new requested wavelength scale """
+    flux = np.interp(wavelen, NNet['wvl'], predictFlux)
+
+    """ return wavelength and flux """
+    return flux
+
+
+def readNN(NNpath):
+    NNet = np.load(NNpath)
+    print(f"min(lambda) = {min(NNet['wvl'])}")
+    print(f"max(lambda) = {max(NNet['wvl'])}")
+    if 'labelsKeys' in NNet:
+        print("Labels NN is trained on:")
+        for i in range(len(NNet['labelsKeys'])):
+            print(f"{NNet['labelsKeys'][i]}: max = {max(NNet['labelsInput'][i])}  \
+min = {min(NNet['labelsInput'][i])}")
+
+    return NNet
 
 def callNN(wavelength, obsSpec, NN, labels):
     #fileOut = "./iterFlux.dat"
