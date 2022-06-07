@@ -48,8 +48,8 @@ def readNN(NNpath):
     if 'labelsKeys' in NNet:
         print("Labels NN is trained on:")
         for i in range(len(NNet['labelsKeys'])):
-            print(f"{NNet['labelsKeys'][i]}: max = {max(NNet['labelsInput'][i])}  \
-min = {min(NNet['labelsInput'][i])}")
+            print(f"{NNet['labelsKeys'][i]}: min = {min(NNet['labelsInput'][i])}  \
+max = {max(NNet['labelsInput'][i])}")
 
     return NNet
 
