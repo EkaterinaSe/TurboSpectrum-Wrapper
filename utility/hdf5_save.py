@@ -14,14 +14,15 @@ def gather_data(specList):
     # get the labels
     spec = readSpectrumTSwrapper(specList[0])
     wvl = spec.lam
-    labels = { k:[] for k in spec.labels}
-    flxl = np.zeros( shape=(len(specList), len(spec.lam) ) )
+    totSize = len(specList)
+    labels = { k:np.full( totSize, np.nan ) for k in spec.labels}
+    flxl = np.zeros( shape=( totSize, len(spec.lam) ) )
 
     for i, specFile in enumerate(specList):
         spec = readSpectrumTSwrapper(specFile)
         flxl[i] = spec.flux
         for k in labels:
-            labels[k].append(spec.__dict__[k])
+            labels[k][i] = spec.__dict__[k]
     return (flxl, labels, wvl)
 
 if __name__ == '__main__':
@@ -31,27 +32,29 @@ if __name__ == '__main__':
         ncpu = int(argv[2])
     else:
         ncpu = 1
-    specList = glob.glob(path)[:100]
+    specList = glob.glob(path)[:10]
 
     # profiler = cProfile.Profile()
     # profiler.enable()
 
-    args = [ spectraList[i::ncpu] for i in range(ncpu)]
+    args = [ specList[i::ncpu] for i in range(ncpu)]
     with Pool(processes=ncpu) as pool:
         out = pool.map(gather_data, args )
-    # for i in range(len(out)):
-    #     fl = out[i][0]
-    #     lab   = out[i][1]
-        # w   = out[i][1]
-    flxl = np.hstack( (out[i][0] for i in range(len(out))) )
-    print( np.shape(flxl) )
-    # flxl, labels, wvl = gather_data(specList)
+
+    stack = list(out[i][0] for i in range(len(out)))
+    flxl = np.vstack( stack )
+
+    labels = {}
+    for k in out[0][1]:
+        stack = list(out[i][1][k] for i in range(len(out)))
+        labels[k] = np.hstack( stack )
 
     with h5py.File('./test.h5', 'w') as hf:
         hf.create_dataset( 'fluxes', data=flxl, shape=np.shape(flxl), dtype='float64')
         for k in labels:
             hf.create_dataset( f"{k}", data=labels[k] )
-        hf.create_dataset( 'wave', data=wvl, shape=np.shape(wvl), dtype='float64')
+        hf.create_dataset( 'wave', data=out[0][2], dtype='float64')
+        print(out[0][2])
 
 
 
