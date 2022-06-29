@@ -288,11 +288,24 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         for elID, el in self.inputParams['elements'].items():
             if el.nlte:
                 print(el.ID)
-                self.prepInterpolation_NLTE(el, interpolCoords, \
-                    rescale = True, depthScale = self.depthScaleNew)
-                self.interpolateAllPoints_NLTE(el)
-                del el.nlteData
-                del el.interpolator
+                search = []
+                el.departFiles = np.full(self.inputParams['count'], None)
+                for i in range(len(el.abund)):
+                    departFile = el.departDir + \
+                            f"/depCoeff_{el.ID}_{el.abund[i]:.3f}_{i}.dat"
+                    el.departFiles[i] = departFile
+                    if not os.path.isfile(departFile):
+                        search.append(False)
+                    else:
+                      search.append(True)
+                if np.array(search).all():
+                    print(f"Will re-use interpolated departure coefficients found under {el.departDir}")
+                else:
+                    self.prepInterpolation_NLTE(el, interpolCoords, \
+                        rescale = True, depthScale = self.depthScaleNew)
+                    self.interpolateAllPoints_NLTE(el)
+                    del el.nlteData
+                    del el.interpolator
 # TODO: move the four routines below into model_atm_interpolation
 
     def prepInterpolation_MA(self):
@@ -346,7 +359,7 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
         print(f"{len(np.unique(t[0]))} models")
         print(f"levels: {np.unique(t[1])}")
         print(f"depth: {np.unique(t[2])}")
-        el.comment += el.nlteData['comment']
+        #el.comment += el.nlteData['comment']
         del el.nlteData['comment']
 
         """ Scaling departure coefficients for the most efficient interpolation """
@@ -522,7 +535,7 @@ at A({el.ID}) = {el.abund[i]}, [Fe/H] = {self.inputParams['feh'][i]} at i = {i}"
                 """
                 if np.isnan(depart).all():
                     #if self.debug:
-                    print(f"attempting to find the closest point the in the grid of departure coefficients")
+                    #print(f"attempting to find the closest point the in the grid of departure coefficients")
 # TODO: move the four routines below into model_atm_interpolation
                     point = {}
                     for k in el.interpolator['normCoord'][0]:
