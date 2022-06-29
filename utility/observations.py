@@ -24,14 +24,16 @@ def readSpectrumTSwrapper(filePath):
                 break
             if l.startswith('#'):
                 header.append(l)
-        fundPar = header[3:7]
+        #fundPar = header[3:7]
+        fundPar = header[4:8]
         for l in fundPar:
             k, v = l.replace('#','').split('=')
             k = k.strip().lower()
             v = float(v.replace('\n','').strip())
             spec.__dict__[k] = v
             spec.labels.append(k)
-        elements = header[7:]
+        #elements = header[7:]
+        elements = header[8:]
         for l in elements:
            el, abund = l.replace('#','').split('=')
            el = el.split('(')[-1].split(')')[0].strip()
@@ -141,8 +143,7 @@ class spectrum(object):
         """
         self.Vrot = Vrot
         if self.Vrot < 0:
-            print(F"Rotational velocity <0: {self.Vrot}. Can only be positive (km/s). Stopped.")
-            exit(1)
+            print(F"Rotational velocity <0: {self.Vrot}. Can only be positive (km/s).")
         if self.Vrot == 0: # do nothing
             pass
         elif not np.isnan(self.Vrot):
@@ -181,8 +182,7 @@ class spectrum(object):
         if self.Vmac == 0: # do nothing
             pass
         elif self.Vmac < 0:
-            print(F"Macroturbulence <0: {self.Vmac}. Can only be positive (km/s). Stopped.")
-            exit(1)
+            print(F"Macroturbulence <0: {self.Vmac}. Can only be positive (km/s).")
         elif not np.isnan(self.Vmac):
             spec_deltaV = self.lam_step/np.mean(self.lam) * const.c.to('km/s').value
             if (spec_deltaV) > self.Vmac:
@@ -208,6 +208,12 @@ class spectrum(object):
 
     def copy(self):
         return deepcopy(self)
+
+    def cut(self, lim):
+        start, end = lim
+        mask = np.logical_and(self.lam > start, self.lam < end)
+        self.lam = self.lam[mask]
+        self.flux = self.flux[mask]
 
 
 
