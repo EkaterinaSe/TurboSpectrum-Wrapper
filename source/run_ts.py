@@ -240,6 +240,8 @@ Input parameters: \n\
             header += '\n'.join( f"{k} = {set.inputParams[k][i]}" for  k in set.freeInputParams)
             header += '\n'
             header += '\n'.join(f"A({el.ID}) = {el.abund[i]} {['NLTE' if el.nlte else 'LTE']}" for el in elements)
+            header += '\n'
+            header += '\n'
 
             "Create NLTE info file"
             if set.nlte:
