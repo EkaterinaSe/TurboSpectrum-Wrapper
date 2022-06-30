@@ -29,8 +29,6 @@ def gather_data(specList):
         flxl[i] = spec.flux
         for k in labels:
             labels[k][i] = spec.__dict__[k]
-        names = np.array(names)
-        comments = np.array(comments)
 
     return (flxl, labels, wvl, names)
 
@@ -52,7 +50,10 @@ if __name__ == '__main__':
 
     flxl = np.vstack( list(out[i][0] for i in range(len(out))) )
     labels = { k : list(out[i][1][k] for i in range(len(out))) for k in out[0][1]}
-    names = np.vstack( list(out[i][3] for i in range(len(out))) )
+    names = []
+    for i in range(len(out)):
+        names.extend( out[i][3])
+    names = [a.encode('utf8') for a in names]
 
     with h5py.File('./test.h5', 'w') as hf:
         hf.create_dataset( 'fluxes', data=flxl, shape=np.shape(flxl), dtype='float64')
@@ -61,8 +62,9 @@ if __name__ == '__main__':
         hf.create_dataset( 'wave', data=out[0][2], dtype='float64')
         hf.create_dataset( 'ID', data=names)
 
-    # with h5py.File('./test.h5', 'r') as hf:
-    #     print( list(hf.keys()) )
+    with h5py.File('./test.h5', 'r') as hf:
+        print( list(hf.keys()) )
+        print( [a.decode('utf8') for a in hf['ID']] )
     # stats = pstats.Stats(profiler).sort_stats('cumulative')
     # stats.print_stats()
 
