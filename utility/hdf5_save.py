@@ -17,13 +17,22 @@ def gather_data(specList):
     totSize = len(specList)
     labels = { k:np.full( totSize, np.nan ) for k in spec.labels}
     flxl = np.zeros( shape=( totSize, len(spec.lam) ) )
+    names = []
+    ## TODO:
+    comments = []
 
     for i, specFile in enumerate(specList):
         spec = readSpectrumTSwrapper(specFile)
+        spec.id = specFile.split('/')[-1]
+        names.append(spec.id)
+
         flxl[i] = spec.flux
         for k in labels:
             labels[k][i] = spec.__dict__[k]
-    return (flxl, labels, wvl)
+        names = np.array(names)
+        comments = np.array(comments)
+
+    return (flxl, labels, wvl, names)
 
 if __name__ == '__main__':
 
@@ -41,22 +50,16 @@ if __name__ == '__main__':
     with Pool(processes=ncpu) as pool:
         out = pool.map(gather_data, args )
 
-    stack = list(out[i][0] for i in range(len(out)))
-    flxl = np.vstack( stack )
-
-    labels = {}
-    for k in out[0][1]:
-        stack = list(out[i][1][k] for i in range(len(out)))
-        labels[k] = np.hstack( stack )
+    flxl = np.vstack( list(out[i][0] for i in range(len(out))) )
+    labels = { k : list(out[i][1][k] for i in range(len(out))) for k in out[0][1]}
+    names = np.vstack( list(out[i][3] for i in range(len(out))) )
 
     with h5py.File('./test.h5', 'w') as hf:
         hf.create_dataset( 'fluxes', data=flxl, shape=np.shape(flxl), dtype='float64')
         for k in labels:
             hf.create_dataset( f"{k}", data=labels[k] )
         hf.create_dataset( 'wave', data=out[0][2], dtype='float64')
-        print(out[0][2])
-
-
+        hf.create_dataset( 'ID', data=names)
 
     # with h5py.File('./test.h5', 'r') as hf:
     #     print( list(hf.keys()) )
