@@ -39,7 +39,7 @@ if __name__ == '__main__':
         ncpu = int(argv[2])
     else:
         ncpu = 1
-    specList = glob.glob(path)[:10]
+    specList = glob.glob(path)
 
     # profiler = cProfile.Profile()
     # profiler.enable()
@@ -64,7 +64,7 @@ if __name__ == '__main__':
 
     with h5py.File('./test.h5', 'r') as hf:
         print( list(hf.keys()) )
-        print( [a.decode('utf8') for a in hf['ID']] )
+        #print( [a.decode('utf8') for a in hf['ID']] )
     # stats = pstats.Stats(profiler).sort_stats('cumulative')
     # stats.print_stats()
 
