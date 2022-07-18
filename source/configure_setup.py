@@ -15,6 +15,11 @@ import cProfile
 import pstats
 from chemical_elements import ChemElement
 
+def gradient3rdOrder(f):
+    for i in range(3):
+        f = np.gradient(f, edge_order=2)
+    return f
+
 def in_hull(p, hull):
     """
     Is triangulation-based interpolation to this point possible?
@@ -528,6 +533,21 @@ No computations will be done for those")
                     print(f"Found no departure coefficients \
 at A({el.ID}) = {el.abund[i]}, [Fe/H] = {self.inputParams['feh'][i]} at i = {i}")
                     depart = np.nan
+
+                """
+                Check that no non-linearities are present
+                """
+                nonLin = False
+                if not np.isnan(depart).all():
+                    for ii in range(np.shape(depart)[0]):
+                        if (gradient3rdOrder( depart[ii] ) > 0.1).any():
+                            depart = np.nan
+                            nonLin = True
+                            self.inputParams['comments'][i] += f"Non-linear behaviour in the interpolated departure coefficients \
+of {el.ID} found. Will be using the closest data from the grid instead of interpolated values.\n"
+                            break
+                if not nonLin:
+                    print(f'no weird behaviour encountered for {el.ID} at abund={ el.abund[i]:.2f}')
                 """
                 If interpolation failed e.g. if the point is outside of the grid,
                 find the closest point in the grid and take a departure coefficient
@@ -549,11 +569,10 @@ at A({el.ID}) = {el.abund[i]}, [Fe/H] = {self.inputParams['feh'][i]} at i = {i}"
 
                     for k in el.interpolator['normCoord'][0]:
                         if ( np.abs(el.nlteData[k][pos] - point[k]) / point[k] ) > 0.5:
-                            self.inputParams['comments'][i] += f"departure coefficients \
-for {el.ID} were taken at point with the following parameters:\n"
                             for k in el.interpolator['normCoord'][0]:
                                 self.inputParams['comments'][i] += f"{k} = {el.nlteData[k][pos]}\
  (off by {point[k] - el.nlteData[k][pos] }) \n"
+
                 write_departures_forTS(departFile, tau, depart, el.abund[i])
                 el.departFiles[i] = departFile
                 self.inputParams['comments'][i] += el.comment
