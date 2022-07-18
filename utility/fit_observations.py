@@ -94,9 +94,9 @@ def fitToNeuralNetwork(obsSpec, NN, prior = None, quite = True):
     return setLabels, chi2
 
 if __name__ == '__main__':
-    if len(argv) < 3:
+    if len(argv) < 4:
         print("Usage: $ python ./fit_observations.py \
-<path to model spectra or payne NN> <path to observed spectra>")
+<path to model spectra or payne NN> <path to observed spectra> fit-for-key e.g. 'mg'")
         exit()
     "Fit using Payne neural network"
     nnPath = argv[1]
@@ -105,17 +105,27 @@ if __name__ == '__main__':
     obsPath = argv[2]
     specList = glob.glob(obsPath)
     print(f"found {len(specList)} observed spectra")
+
+    solveFor = argv[3]
+    print(f"Solving for {solveFor}...")
     for nnPath in NNs:
         NN = readNN(nnPath)
         NNid = nnPath.split('/')[-1].replace('.npz', '').strip() 
 
-        out = {'file':[], 'chi2':[], 'vmac':[], 'vrot':[], 'diffMg':[], 'diffLogg':[]}
-        with open(f"./fittingResults_{NNid}.dat", 'w') as LogResults:
+        if solveFor not in NN['labelsKeys']:
+            print(f"No key {solveFor} in requested NN {nnPath}")
+            exit()
+
+        out = {'file':[], 'chi2':[], 'vmac':[], 'vrot':[], f"diff_{solveFor}":[]}
+        with open(f"./fittingResults_{NNid}_fitFor{solveFor}.dat", 'w') as LogResults:
             LogResults.write( "#" + '\t'.join(NN['labelsKeys']) + ' Vmac    Vrot  chi2\n' )
             for obsSpecPath in specList:
                 print(obsSpecPath)
                 out['file'].append(obsSpecPath)
                 obsSpec = readSpectrumTSwrapper(obsSpecPath)
+                if solveFor not in obsSpec.__dict__.keys():
+                    print(f"No key {solveFor} in spectrum {obsSpecPath}")
+                    exit()
                 obsSpec.convolve_resolution(NN['res'])
                 # resolution is considered constant, therefore FWHM will be bigger for smaller wavelngth range
                 # be careful with the resolution convolution for both observations and ANN restored fluxes
@@ -125,8 +135,7 @@ if __name__ == '__main__':
     
                 prior = {}
                 for l in NN['labelsKeys']:
-                    if l.lower() != 'mg':
-                    #if l.lower() != 'logg':
+                    if l.lower() != solveFor.lower():
                         prior[l.lower()] = obsSpec.__dict__[l]
                 prior['vmac'] = 0
                 prior['vrot'] = 0
@@ -136,12 +145,15 @@ if __name__ == '__main__':
                     if l not in out:
                         out.update({l:[]})
                     out[l].append(labelsFit[i])
-                out['diffMg'].append( obsSpec.Mg - out['Mg'][-1] )
-                out['diffLogg'].append( obsSpec.logg - out['logg'][-1] )
+                out[f"diff_{solveFor}"].append( obsSpec.__dict__[solveFor] - out[solveFor][-1] )
+                d =  out[f"diff_{solveFor}"][-1]
+                print(f"Difference in {solveFor} is {d:.3f}")
                 out['vmac'].append(labelsFit[-2])
                 out['vrot'].append(labelsFit[-1])
                 out['chi2'].append(bestFitChi2)
                    
                 LogResults.write( f"{obsSpec.ID} " + '\t'.join(f"{l:.3f}" for l in labelsFit) + f"{bestFitChi2 : .3f}\n")
-        with open(f'./fittingResults_{NNid}.pkl', 'wb') as f:
+        for k in out.keys():
+            out[k] = np.array(out[k])
+        with open(f'./fittingResults_{NNid}_fitFor{solveFor}.pkl', 'wb') as f:
             pickle.dump(out, f)
