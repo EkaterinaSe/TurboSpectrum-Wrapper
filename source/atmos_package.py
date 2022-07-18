@@ -110,7 +110,7 @@ def read_atmos_m1d(self, file):
     # add comments here
     self.header = f"Read from M1D formatted model atmosphere {file.split('/')[-1].strip()}"
 
-    return
+    return self
 
 
 def write_atmos_m1d(atmos, file):
