@@ -90,7 +90,7 @@ def fitToNeuralNetwork(obsSpec, NN, prior = None, quite = True):
     spec.convolve_macroturbulence(setLabels[-2])
     spec.convolve_rotation(setLabels[-1])
     chi2 = np.sqrt(np.sum(obsSpec.flux - spec.flux)**2)
-    np.savetxt(f"./{obsSpec.ID}_modelFlux.dat", spec.flux)
+    np.savetxt(f"./{obsSpec.ID}_modelFlux.dat", np.vstack([obsSpec.lam, spec.flux]).T )
     return setLabels, chi2
 
 if __name__ == '__main__':
