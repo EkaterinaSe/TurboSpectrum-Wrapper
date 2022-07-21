@@ -215,8 +215,11 @@ def NDinterpolateGrid(inputGrid, interpol_par, valueKey = 'structure'):
             points.append(inputGrid[k] / max(inputGrid[k]) )
             norm_coord.update( { k :  max(inputGrid[k])} )
     points = np.array(points).T
-
     values = np.array(inputGrid[valueKey])
     interp_f = LinearNDInterpolator(points, values)
+    
+    #from scipy.spatial import Delaunay
+    #print('preparing triangulation...')
+    #tri = Delaunay(points)
 
-    return interp_f, norm_coord
+    return interp_f, norm_coord#, tri
