@@ -15,6 +15,11 @@ import cProfile
 import pstats
 from chemical_elements import ChemElement
 
+def gradient3rdOrder(f):
+    for i in range(3):
+        f = np.gradient(f, edge_order=2)
+    return f
+
 def in_hull(p, hull):
     """
     Is triangulation-based interpolation to this point possible?
@@ -137,7 +142,7 @@ class setup(object):
         self.debug = 0
         self.ncpu  = 1
         self.nlte = 0
-        self.saveMemory = 1
+        self.safeMemory = 250 # Gb
 
 
         "Read all the keys from the config file"
@@ -353,8 +358,7 @@ To set up NLTE, use 'nlte_config' flag\n {50*'*'}")
             print(f"reading grid {el.nlteGrid}...")
 
         el.nlteData = read_fullNLTE_grid( el.nlteGrid, el.nlteAux, \
-                                    rescale=rescale, depthScale = depthScale, saveMemory = self.saveMemory )
-                                    #rescale=False, depthScale = depthScale, saveMemory = self.saveMemory )
+                                    rescale=rescale, depthScale = depthScale, safeMemory = self.safeMemory )
         t = np.where(el.nlteData['depart'] > 100000)
         print(f"{len(np.unique(t[0]))} models")
         print(f"levels: {np.unique(t[1])}")
@@ -409,7 +413,7 @@ but element is not Fe (for Fe A(Fe) == [Fe/H] is acceptable)")
         This saves a lot of time.
         """
         el.interpolator = {
-                'abund' : [], 'interpFunction' : [], 'normCoord' : []
+                'abund' : [], 'interpFunction' : [], 'normCoord' : [], 'tri':[]
         }
 
         """ Split the NLTE grid into chuncks of the same abundance """
@@ -449,6 +453,7 @@ but element is not Fe (for Fe A(Fe) == [Fe/H] is acceptable)")
                 el.interpolator['abund'].append(ab)
                 el.interpolator['interpFunction'].append(interpFunction)
                 el.interpolator['normCoord'].append(normalisedCoord)
+                #el.interpolator['tri'].append(tri)
             else:
                 print("Failed pre-interpolation tests, see above")
                 print(f"NLTE grid: {el.ID}, A({el.ID}) = {ab}")
@@ -499,6 +504,11 @@ No computations will be done for those")
                              for k in el.interpolator['normCoord'][j] if k !='abund']
                     ab = el.interpolator['abund'][j]
                     departAb = el.interpolator['interpFunction'][j](point)[0]
+                    #simp = el.interpolator['tri'][j].simplices
+                    #psimp = el.interpolator['tri'][j].find_simplex(point)
+                    #print(j, simp[psimp])
+                    #df = f"./testInterpolDepart/Na_{j:.0f}_" + '_'.join( f"{s:.0f}" for s in simp[psimp]) + '.dat'
+                    #write_departures_forTS(df, tau, departAb, el.interpolator['abund'][j])
                     if not np.isnan(departAb).all():
                         x.append(ab)
                         y.append(departAb)
@@ -528,14 +538,31 @@ No computations will be done for those")
                     print(f"Found no departure coefficients \
 at A({el.ID}) = {el.abund[i]}, [Fe/H] = {self.inputParams['feh'][i]} at i = {i}")
                     depart = np.nan
+
+                """
+                Check that no non-linearities are present
+                """
+                nonLin = False
+                if not np.isnan(depart).all():
+                    for ii in range(np.shape(depart)[0]):
+                        if (gradient3rdOrder( depart[ii] ) > 0.01).any():
+                            depart = np.nan
+                            nonLin = True
+                            self.inputParams['comments'][i] += f"Non-linear behaviour in the interpolated departure coefficients \
+of {el.ID} found. Will be using the closest data from the grid instead of interpolated values.\n"
+                            break
+                if not nonLin:
+                    print(f'no weird behaviour encountered for {el.ID} at abund={ el.abund[i]:.2f}')
+                else:
+                    print(f"non-linearities for {el.ID} at abund={el.abund[i]:.2f}")
                 """
                 If interpolation failed e.g. if the point is outside of the grid,
                 find the closest point in the grid and take a departure coefficient
                 for that point
                 """
                 if np.isnan(depart).all():
-                    #if self.debug:
-                    #print(f"attempting to find the closest point the in the grid of departure coefficients")
+                    if self.debug:
+                        print(f"attempting to find the closest point the in the grid of departure coefficients")
 # TODO: move the four routines below into model_atm_interpolation
                     point = {}
                     for k in el.interpolator['normCoord'][0]:
@@ -549,11 +576,10 @@ at A({el.ID}) = {el.abund[i]}, [Fe/H] = {self.inputParams['feh'][i]} at i = {i}"
 
                     for k in el.interpolator['normCoord'][0]:
                         if ( np.abs(el.nlteData[k][pos] - point[k]) / point[k] ) > 0.5:
-                            self.inputParams['comments'][i] += f"departure coefficients \
-for {el.ID} were taken at point with the following parameters:\n"
                             for k in el.interpolator['normCoord'][0]:
                                 self.inputParams['comments'][i] += f"{k} = {el.nlteData[k][pos]}\
  (off by {point[k] - el.nlteData[k][pos] }) \n"
+
                 write_departures_forTS(departFile, tau, depart, el.abund[i])
                 el.departFiles[i] = departFile
                 self.inputParams['comments'][i] += el.comment

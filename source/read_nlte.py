@@ -115,7 +115,7 @@ def read_binary_grid(grid_file, pointer=1):
     return ndep, nk, depart, tau
 
 
-def read_fullNLTE_grid(bin_file, aux_file, rescale=False, depthScale=None, saveMemory = False):
+def read_fullNLTE_grid(bin_file, aux_file, rescale=False, depthScale=None, safeMemory = np.inf):
     """
     Reads the full binary NLTE grid of departure coefficients
     Note: binary grids can reach up to 100 Gb in size, therefore it is
@@ -156,11 +156,15 @@ please supply new depth scale.")
             ('vturb', 'f8'), ('abund', 'f8'), ('pointer', 'i8')])
 
     data = {}
-    if saveMemory:
-        pos = np.random.randint(0, len(aux['atmos_id']), \
-                                size=int(len(aux['atmos_id'])/2))
+    gridSize = os.path.getsize(bin_file) / (1024**3)
+    if  gridSize > safeMemory:
+        print(f"size of the NLTE grid in {bin_file} is {gridSize:.2f} Gb, which is bigger than available memory of {safeMemory:.2f}")
+        radnSelect = np.random.random(size=len(aux['atmos_id']))
+        maskSelect = np.full(len(aux['atmos_id']), False)
+        maskSelect[radnSelect < (safeMemory/gridSize) ] = True
+        print(f"Will read { (np.sum(maskSelect) / len(aux['atmos_id']) ) *100:.0f} % of the records.")
         for k in aux.dtype.names:
-            data.update( { k : aux[k][pos] })
+            data.update( { k : aux[k][maskSelect] })
     else:
         for k in aux.dtype.names:
             data.update( { k : aux[k] })
@@ -198,8 +202,8 @@ please supply new depth scale.")
             levSubst.extend(np.unique(infMask[1]))
             depthSubst.extend(np.unique(infMask[0]))
         if rescale:
-            f_int = interp1d(tau, depart, fill_value='extrapolate')
-            depart = f_int(depthScale)
+            f_int = interp1d(tau, np.log10(depart), fill_value='extrapolate')
+            depart = 10**f_int(depthScale)
             tau = depthScale
 # questinable, but I tested, and they somethimes go from 0.01 to -0.1, so...
 # I don't know, Maria doesn't give me time to think or do things properly, I am so tired
