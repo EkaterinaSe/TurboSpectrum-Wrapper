@@ -51,7 +51,9 @@ def compareSpectra(arg):
             comparison['feh'].append( specOrig.feh )
             comparison['vturb'].append( specOrig.vturb )
     return comparison
-
+def leakyReLu(z):
+    # first layer?
+    z*(z > 0) + 0.01*z*(z < 0)
 def restore(wavelen, NNet, labels):
     """ Normalised labels """
     labels = np.array(labels)
