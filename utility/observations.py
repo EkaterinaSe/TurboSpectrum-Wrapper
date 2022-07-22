@@ -126,10 +126,12 @@ class spectrum(object):
     def convolve_resolution(self, R_new, quite=True):
         if not quite:
             print(F"Convolving spectrum from R={self.R} to R={R_new}...")
-        d_lam = (np.mean(self.lam)/R_new)
-        sigma = d_lam / (2.0 * np.sqrt(2. * np.log(2.)))
-        kernel = convolution.Gaussian1DKernel(sigma/self.lam_step)
-        self.flux =  convolution.convolve(self.flux, kernel, fill_value=1)
+        fwhmMean = (np.mean(self.lam)/R_new) / (2.0 * np.sqrt(2. * np.log(2.))) / self.lam_step
+        x_size=1501*int(fwhmMean)
+        for e in range(int(len(self.lam)/x_size)+1):
+            fwhm = (np.mean(self.lam[e*x_size:(e+1)*x_size])/R_new) / (2.0 * np.sqrt(2. * np.log(2.))) /self.lam_step
+            kernel = convolution.Gaussian1DKernel(fwhm)
+            self.flux[e*x_size:(e+1)*x_size] =  convolution.convolve(self.flux[e*x_size:(e+1)*x_size], kernel, fill_value=1)
         self.R = R_new
 
     def convolve_rotation(self, Vrot,  quite=True):
@@ -155,15 +157,15 @@ class spectrum(object):
             else:
                 # FWHM: km/s --> A --> step
                 # assumes constant step along the whole wavelength range
-                fwhm = self.Vrot * np.mean(self.lam) / const.c.to('km/s').value / self.lam_step
+                fwhmMean = self.Vrot * np.mean(self.lam) / const.c.to('km/s').value / self.lam_step
 
                 # kernel should always have odd size  along all axis
-                x_size=int(30*fwhm)
-                if x_size % 2 == 0:
-                    x_size += 1
+                x_size=1501*int(fwhmMean)
+                for e in range(int(len(self.lam)/x_size)+1):
+                    fwhm = self.Vrot * np.mean(self.lam[e*x_size:(e+1)*x_size]) / const.c.to('km/s').value / self.lam_step
+                    rot_kernel = convolution.Model1DKernel(rotation(fwhm), x_size=x_size )
+                    self.flux[e*x_size:(e+1)*x_size] = convolution.convolve(self.flux[e*x_size:(e+1)*x_size], rot_kernel, fill_value=1)
 
-                rot_kernel = convolution.Model1DKernel(rotation(fwhm), x_size=x_size )
-                self.flux = convolution.convolve(self.flux, rot_kernel, fill_value=1)
         else:
             print(F"Unexpected Vrot={self.Vrot} [km/s]. Stopped.")
             exit(1)
@@ -192,15 +194,14 @@ class spectrum(object):
             else:
                 # FWHM: km/s --> A --> step
                 # assumes constant step along the whole wavelength range
-                fwhm = self.Vmac * np.mean(self.lam) / const.c.to('km/s').value / self.lam_step
+                fwhmMean = self.Vmac * np.mean(self.lam) / const.c.to('km/s').value / self.lam_step
 
                 # kernel should always have odd size along all axis
-                x_size=int(30*fwhm)
-                if x_size % 2 == 0:
-                    x_size += 1
-                macro_kernel = convolution.Model1DKernel( rad_tang(fwhm), x_size=x_size )
-
-                self.flux = convolution.convolve(self.flux, macro_kernel, fill_value=1)
+                x_size=1501*int(fwhmMean)
+                for e in range(int(len(self.lam)/x_size)+1):
+                    fwhm = self.Vmac * np.mean(self.lam[e*x_size:(e+1)*x_size]) / const.c.to('km/s').value / self.lam_step
+                    macro_kernel = convolution.Model1DKernel( rad_tang(fwhm), x_size=x_size )
+                    self.flux[e*x_size:(e+1)*x_size] = convolution.convolve(self.flux[e*x_size:(e+1)*x_size], macro_kernel, fill_value=1)
         else:
             print(F"Unexpected Vmac={self.Vmac} [km/s]. Stopped.")
             exit(1)
